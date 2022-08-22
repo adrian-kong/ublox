@@ -649,7 +649,7 @@ struct NavSat {
 
     num_svs: u8,
 
-    reserved: u16,
+    reserved: [u8; 2],
 
     #[ubx(map_type = NavSatIter,
     may_fail,
