@@ -2027,6 +2027,16 @@ struct EsfMeas {
 //     msss: u32,
 // }
 
+#[ubx_packet_recv]
+#[ubx(class = 0x01, id = 0x22, fixed_payload_len = 20)]
+struct NavClock {
+    itow: u32,
+    clk_b: i32,
+    clk_d: i32,
+    t_acc: u32,
+    f_acc: u32,
+}
+
 define_recv_packets!(
     enum PacketRef {
         _ = UbxUnknownPacketRef,
@@ -2058,5 +2068,6 @@ define_recv_packets!(
         MonHw,
         RxmRtcm,
         EsfMeas,
+        NavClock,
     }
 );
