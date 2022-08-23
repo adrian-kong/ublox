@@ -29,6 +29,34 @@ fn generate_debug_impl(pack_name: &str, ref_name: &Ident, pack_descr: &PackDesc)
     }
 }
 
+fn generate_serialize_impl(
+    pack_name: &str,
+    ref_name: &Ident,
+    pack_descr: &PackDesc,
+) -> TokenStream {
+    let mut fields = vec![];
+    for field in pack_descr.fields.iter() {
+        let field_name = &field.name;
+        let field_accessor = field.intermediate_field_name();
+        fields.push(quote! {
+            .field(stringify!(#field_name), &self.#field_accessor())
+        });
+    }
+
+    quote! {
+        impl serde::Serialize for #ref_name<'_> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                let mut state = serializer.serialize_struct(#pack_name, 0)?;
+                // state.serialize_field()
+                state.end()
+            }
+        }
+    }
+}
+
 pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
     let pack_name = &pack_descr.name;
     let ref_name = format_ident!("{}Ref", pack_descr.name);
@@ -169,6 +197,7 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
     };
 
     let debug_impl = generate_debug_impl(pack_name, &ref_name, pack_descr);
+    let serialize_impl = generate_serialize_impl(pack_name, &ref_name, pack_descr);
 
     quote! {
         #[doc = #struct_comment]
@@ -181,6 +210,7 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
         }
 
         #debug_impl
+        #serialize_impl
     }
 }
 
@@ -559,7 +589,7 @@ pub fn generate_code_for_parse(recv_packs: &RecvPackets) -> TokenStream {
 
     quote! {
         #[doc = "All possible packets enum"]
-        #[derive(Debug)]
+        #[derive(Debug, serde::Serialize)]
         pub enum #union_enum_name<'a> {
             #(#pack_enum_variants),*,
             Unknown(#unknown_var<'a>)

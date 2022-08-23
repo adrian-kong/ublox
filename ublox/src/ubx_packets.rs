@@ -82,7 +82,7 @@ pub trait UbxPacketCreator {
 }
 
 /// Packet not supported yet by this crate
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct UbxUnknownPacketRef<'a> {
     pub payload: &'a [u8],
     pub class: u8,
@@ -94,6 +94,18 @@ pub struct UbxPacketRequest {
     req_class: u8,
     req_id: u8,
 }
+// impl serde::Serialize for UbxPacketRequest {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let mut state: S::serde::ser::SerializeStruct = serializer.serialize_struct("", 0)?;
+//         // state.serialize_field("r", &self.r)?;
+//         // state.serialize_field("g", &self.g)?;
+//         // state.serialize_field("b", &self.b)?;
+//         state.end()
+//     }
+// }
 
 impl UbxPacketRequest {
     pub const PACKET_LEN: usize = 8;

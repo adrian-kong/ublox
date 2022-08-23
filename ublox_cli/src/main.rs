@@ -11,15 +11,13 @@ fn main() {
     let mut parser = Parser::default();
     let data: Vec<u8> = reader.bytes().map(|a| a.unwrap()).collect();
     let mut it = parser.consume(&data);
-    while let next = it.next() {
+    while let Some(next) = it.next() {
         match next {
-            Some(Ok(packet)) => {
-                println!("{:?}", packet);
+            Ok(packet) => {
+                // let a = serde_json::to_string(&packet);
+                println!("{packet:?}");
             }
-            Some(Err(err)) => {}
-            None => {
-                break;
-            }
+            Err(_) => {}
         }
     }
 }
