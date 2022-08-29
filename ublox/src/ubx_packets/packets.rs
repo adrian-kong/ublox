@@ -325,7 +325,7 @@ struct NavSolution {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
 pub enum GpsFix {
     NoFix = 0,
     DeadReckoningOnly = 1,
@@ -384,7 +384,19 @@ impl fmt::Debug for FixStatusInfo {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+impl serde::Serialize for FixStatusInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_map(Some(2))?;
+        state.serialize_entry("has_pr_prr_correction", &self.has_pr_prr_correction())?;
+        state.serialize_entry("map_matching", &self.map_matching())?;
+        state.end()
+    }
+}
+
+#[derive(Copy, serde::Serialize, Clone, Debug)]
 pub enum MapMatchingStatus {
     None = 0,
     /// valid, i.e. map matching data was received, but was too old
@@ -401,7 +413,7 @@ pub enum MapMatchingStatus {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, serde::Serialize, Copy, Clone)]
 enum NavStatusFlags2 {
     Acquisition = 0,
     Tracking = 1,
@@ -716,7 +728,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, serde::Serialize, Copy, Debug)]
 pub enum OdoProfile {
     Running = 0,
     Cycling = 1,
@@ -1091,7 +1103,7 @@ struct CfgPrtI2c {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, serde::Serialize, Copy, Clone)]
 pub enum I2cPortId {
     I2c = 0,
 }
@@ -1125,14 +1137,14 @@ struct CfgPrtUart {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, serde::Serialize, Copy, Clone)]
 pub enum UartPortId {
     Uart1 = 1,
     Uart2 = 2,
     Usb = 3,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, serde::Serialize, Copy, Clone)]
 pub struct UartMode {
     data_bits: DataBits,
     parity: Parity,
@@ -1327,7 +1339,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, serde::Serialize, Copy, Clone)]
 pub enum SpiPortId {
     Spi = 4,
 }
@@ -1567,7 +1579,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
 pub enum CfgNav5DynModel {
     Portable = 0,
     Stationary = 2,
@@ -1593,7 +1605,7 @@ impl Default for CfgNav5DynModel {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
 pub enum CfgNav5FixMode {
     Only2D = 1,
     Only3D = 2,
@@ -1610,7 +1622,7 @@ impl Default for CfgNav5FixMode {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
 pub enum CfgNav5UtcStandard {
     /// receiver selects based on GNSS configuration (see GNSS timebases)
     Automatic = 0,
@@ -1821,7 +1833,7 @@ struct MgaAck {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
 pub enum MsgAckInfoCode {
     Accepted = 0,
     RejectedNoTime = 1,
@@ -1860,7 +1872,7 @@ struct MonHw {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
 pub enum AntennaStatus {
     Init = 0,
     DontKnow = 1,
@@ -1872,7 +1884,7 @@ pub enum AntennaStatus {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
 pub enum AntennaPower {
     Off = 0,
     On = 1,
