@@ -2439,6 +2439,7 @@ bitflags! {
     }
 }
 
+#[derive(Clone)]
 pub struct RxmRawxInfoIter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> RxmRawxInfoIter<'a> {
@@ -2451,14 +2452,40 @@ impl<'a> RxmRawxInfoIter<'a> {
     }
 }
 
+impl serde::Serialize for RxmRawxInfoRef<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_map(None)?;
+        state.serialize_entry("pr_mes", &self.pr_mes())?;
+        state.end()
+        // .debug_struct("RxmRawxInfo")
+        //     .field("pr_mes", &self.pr_mes())
+        //     .field("cp_mes", &self.cp_mes())
+        //     .field("do_mes", &self.do_mes())
+        //     .field("gnss_id", &self.gnss_id())
+        //     .field("sv_id", &self.sv_id())
+        //     .field("reserved2", &self.reserved2())
+        //     .field("freq_id", &self.freq_id())
+        //     .field("lock_time", &self.lock_time())
+        //     .field("cno", &self.cno())
+        //     .field("pr_stdev", &self.pr_stdev())
+        //     .field("cp_stdev", &self.cp_stdev())
+        //     .field("do_stdev", &self.do_stdev())
+        //     .field("trk_stat", &self.trk_stat())
+        //     .field("reserved3", &self.reserved3())
+        //     .finish()
+        // serializer.serialize_str(format!("{:?}", self).as_str())
+    }
+}
+
 impl serde::Serialize for RxmRawxInfoIter<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let cell = RefCell::new(self);
-        serializer.collect_seq(cell.borrow_mut().as_ref());
-        todo!()
+        serializer.collect_seq(self.clone())
     }
 }
 
