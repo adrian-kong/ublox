@@ -6,9 +6,11 @@ use crate::error::{MemWriterError, ParserError};
 use bitflags::bitflags;
 use chrono::prelude::*;
 use core::fmt;
+use core::fmt::Formatter;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::float::FloatCore;
 use serde::ser::SerializeStruct;
+use std::convert::TryInto;
 use ublox_derive::{
     define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_packet_recv, ubx_packet_recv_send,
     ubx_packet_send,
@@ -623,7 +625,7 @@ struct NavSat {
 
     num_svs: u8,
 
-    reserved: u16,
+    reserved: [u8; 2],
 
     #[ubx(map_type = NavSatIter,
         may_fail,
@@ -1970,22 +1972,216 @@ struct RxmRtcm {
 }
 
 #[ubx_packet_recv]
-#[ubx(class = 0x10, id = 0x02, fixed_payload_len = 16)]
+#[ubx(class = 0x10, id = 0x02, max_payload_len = 1240)]
 struct EsfMeas {
     time_tag: u32,
-    flags: u16,
-    id: u16,
-    /// flags >> 11 & 0x1F
-    data: u32,
-    /// flags & 0x8
-    calib_tag: u32,
+    #[ubx(map_type = EsfMeasInfo, from = EsfMeasInfo::new)]
+    info: [u8; 0],
 }
 
-// #[ubx_packet_recv]
-// #[ubx(class = 0x10, id = 0x03, fixed_payload_len = 16)]
-// struct EsfRaw {
-//     msss: u32,
-// }
+pub struct EsfMeasInfo<'a> {
+    flags: u16,
+    id: u16,
+    data: U32Iter<'a>,
+    calib_tag: Option<u32>,
+}
+
+pub struct U32Iter<'a>(core::slice::ChunksExact<'a, u8>);
+
+impl<'a> U32Iter<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        U32Iter(bytes.chunks_exact(4))
+    }
+
+    fn is_valid(bytes: &'a [u8]) -> bool {
+        bytes.len() % 4 == 0
+    }
+}
+
+impl<'a> core::iter::Iterator for U32Iter<'a> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .next()
+            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+    }
+}
+
+impl<'a> core::fmt::Debug for U32Iter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("U32Iter").finish()
+    }
+}
+
+impl<'a> EsfMeasInfo<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        let flags = u16::from_le_bytes(bytes[0..2].try_into().unwrap());
+        let id = u16::from_le_bytes(bytes[2..4].try_into().unwrap());
+        let num_meas = usize::from(flags >> 11 & 0x1F);
+        let data = U32Iter::new(&bytes[4..num_meas * 4]);
+        let calib_tag = if flags & 0x8 != 0 {
+            let slice = bytes[num_meas * 4 + 4..num_meas * 4 + 8]
+                .try_into()
+                .unwrap();
+            Some(u32::from_le_bytes(slice))
+        } else {
+            None
+        };
+
+        Self {
+            flags,
+            id,
+            data,
+            calib_tag,
+        }
+    }
+}
+
+impl<'a> core::fmt::Debug for EsfMeasInfo<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EsfMeasInfo")
+            .field("flags", &self.flags)
+            .field("id", &self.id)
+            .field("data", &self.data)
+            .field("calib_tag", &self.calib_tag)
+            .finish()
+    }
+}
+
+#[ubx_packet_recv]
+#[ubx(class = 0x10, id = 0x03, max_payload_len = 1240)]
+struct EsfRaw {
+    msss: u32,
+    #[ubx(map_type = EsfRawIter,
+    from = EsfRawIter::new,
+    is_valid = EsfRawIter::is_valid)]
+    iter: [u8; 0],
+}
+
+#[derive(Clone)]
+pub struct EsfRawIter<'a>(core::slice::ChunksExact<'a, u8>);
+
+impl<'a> EsfRawIter<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self(bytes.chunks_exact(4))
+    }
+
+    fn is_valid(bytes: &'a [u8]) -> bool {
+        bytes.len() % 8 == 0
+    }
+}
+
+#[derive(Debug)]
+pub struct EsfRawInfo {
+    data: u32,
+    sensor_time_tag: u32,
+}
+
+impl<'a> core::iter::Iterator for EsfRawIter<'a> {
+    type Item = EsfRawInfo;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(EsfRawInfo {
+            data: u32::from_le_bytes(self.0.next()?.try_into().unwrap()),
+            sensor_time_tag: u32::from_le_bytes(self.0.next()?.try_into().unwrap()),
+        })
+    }
+}
+
+impl<'a> core::fmt::Debug for EsfRawIter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EsfRawIter").finish()
+    }
+}
+
+#[ubx_packet_recv]
+#[ubx(class = 0x10, id = 0x15, fixed_payload_len = 36)]
+struct EsfIns {
+    // #[ubx(map_type = EsfInsBitFlags)]
+    bit_field: u32,
+    reserved: [u8; 4],
+    i_tow: u32,
+
+    #[ubx(map_type = f64, scale = 1e-3, alias = x_angular_rate)]
+    x_ang_rate: i32,
+
+    #[ubx(map_type = f64, scale = 1e-3, alias = y_angular_rate)]
+    y_ang_rate: i32,
+
+    #[ubx(map_type = f64, scale = 1e-3, alias = z_angular_rate)]
+    z_ang_rate: i32,
+
+    #[ubx(map_type = f64, scale = 1e-2, alias = x_acceleration)]
+    x_accel: i32,
+
+    #[ubx(map_type = f64, scale = 1e-2, alias = y_acceleration)]
+    y_accel: i32,
+
+    #[ubx(map_type = f64, scale = 1e-2, alias = z_acceleration)]
+    z_accel: i32,
+}
+
+#[ubx_extend_bitflags]
+#[ubx(from, rest_reserved)]
+bitflags! {
+    pub struct EsfInsBitFlags: u32 {
+        const VERSION = 1;
+        const X_ANG_RATE_VALID = 0x100;
+        const Y_ANG_RATE_VALID = 0x200;
+        const Z_ANG_RATE_VALID = 0x400;
+        const X_ACCEL_VALID = 0x800;
+        const Y_ACCEL_VALID = 0x1000;
+        const Z_ACCEL_VALID = 0x2000;
+    }
+}
+
+#[ubx_packet_recv]
+#[ubx(class = 0x28, id = 0x00, fixed_payload_len = 72)]
+struct HnrPvt {
+    i_tow: u32,
+    year: u16,
+    month: u8,
+    day: u8,
+    hour: u8,
+    min: u8,
+    sec: u8,
+
+    #[ubx(map_type = HnrPvtValidFlags)]
+    valid: u8,
+    nano: i32,
+    #[ubx(map_type = GpsFix)]
+    gps_fix: u8,
+
+    #[ubx(map_type = HnrPvtFlags)]
+    flags: u8,
+
+    reserved1: [u8; 2],
+
+    #[ubx(map_type = f64, scale = 1e-7, alias = longitude)]
+    lon: i32,
+    #[ubx(map_type = f64, scale = 1e-7, alias = latitude)]
+    lat: i32,
+
+    height: i32,
+    height_msl: i32,
+    g_speed: i32,
+    speed: i32,
+
+    #[ubx(map_type = f64, scale = 1e-5, alias = heading_motion)]
+    head_mot: i32,
+    #[ubx(map_type = f64, scale = 1e-5, alias = heading_vehicle)]
+    head_veh: i32,
+
+    h_acc: u32,
+    v_acc: u32,
+    s_acc: u32,
+
+    #[ubx(map_type = f64, scale = 1e-5, alias = heading_accurracy)]
+    head_acc: u32,
+
+    reserved2: [u8; 4],
+}
 
 #[ubx_packet_recv]
 #[ubx(class = 0x01, id = 0x05, fixed_payload_len = 32)]
@@ -2017,11 +2213,47 @@ struct NavClock {
     f_acc: u32,
 }
 
-// #[ubx_packet_recv]
-// #[ubx(class = 0x10, id = 0x03, fixed_payload_len = 16)]
-// struct EsfRaw {
-//     msss: u32,
-// }
+#[ubx_extend_bitflags]
+#[ubx(from, rest_reserved)]
+bitflags! {
+    /// Fix status flags for `HnrPvt`
+    pub struct HnrPvtFlags: u8 {
+        /// position and velocity valid and within DOP and ACC Masks
+        const GPS_FIX_OK = 0x01;
+        /// DGPS used
+        const DIFF_SOLN = 0x02;
+        /// 1 = heading of vehicle is valid
+        const WKN_SET = 0x04;
+        const TOW_SET = 0x08;
+        const HEAD_VEH_VALID = 0x10;
+    }
+}
+
+#[ubx_extend_bitflags]
+#[ubx(from, rest_reserved)]
+bitflags! {
+    pub struct HnrPvtValidFlags: u8 {
+        const VALID_DATE = 0x01;
+        const VALID_TIME = 0x02;
+        const FULLY_RESOLVED = 0x04;
+    }
+}
+
+#[ubx_packet_recv]
+#[ubx(class = 0x02, id = 0x13, max_payload_len = 72)]
+struct RxmSfrbx {
+    gnss_id: u8,
+    sv_id: u8,
+    reserved1: u8,
+    freq_id: u8,
+    num_words: u8,
+    reserved2: u8,
+    version: u8,
+    reserved3: u8,
+
+    #[ubx(map_type = U32Iter, from = U32Iter::new, is_valid = U32Iter::is_valid)]
+    dwrd: [u8; 0],
+}
 
 #[ubx_packet_recv]
 #[ubx(class = 0x01, id = 0x11, fixed_payload_len = 20)]
@@ -2090,6 +2322,103 @@ struct MgaGpsEPH {
     reserved3: [u8; 2],
 }
 
+#[ubx_packet_recv]
+#[ubx(class = 0x02, id = 0x15, max_payload_len = 1240)]
+struct RxmRawx {
+    rcv_tow: f64,
+    week: u16,
+    leap_s: i8,
+    num_meas: u8,
+    #[ubx(map_type = RecStatFlags)]
+    rec_stat: u8,
+    reserved1: [u8; 3],
+    #[ubx(map_type = RxmRawxInfoIter,
+    from = RxmRawxInfoIter::new,
+    is_valid = RxmRawxInfoIter::is_valid)]
+    iter: [u8; 0],
+}
+
+#[ubx_extend_bitflags]
+#[ubx(from, rest_reserved)]
+bitflags! {
+    pub struct RecStatFlags: u8 {
+        const LEAP_SEC = 0x01;
+        const CLOCK_RESET= 0x02;
+    }
+}
+
+#[ubx_packet_recv]
+#[ubx(class = 0x02, id = 0x15, fixed_payload_len = 32)]
+pub struct RxmRawxInfo {
+    pr_mes: f64,
+    cp_mes: f64,
+    do_mes: f32,
+    gnss_id: u8,
+    sv_id: u8,
+    reserved2: u8,
+    freq_id: u8,
+    lock_time: u16,
+    cno: u8,
+    #[ubx(map_type = StdevFlags)]
+    pr_stdev: u8,
+    #[ubx(map_type = StdevFlags)]
+    cp_stdev: u8,
+    #[ubx(map_type = StdevFlags)]
+    do_stdev: u8,
+    #[ubx(map_type = TrkStatFlags)]
+    trk_stat: u8,
+    reserved3: u8,
+}
+
+#[ubx_extend_bitflags]
+#[ubx(from, rest_reserved)]
+bitflags! {
+    pub struct StdevFlags: u8 {
+        const STD_1 = 0x01;
+        const STD_2 = 0x02;
+        const STD_3 = 0x04;
+        const STD_4 = 0x08;
+    }
+}
+
+#[ubx_extend_bitflags]
+#[ubx(from, rest_reserved)]
+bitflags! {
+    pub struct TrkStatFlags: u8 {
+        const PR_VALID = 0x01;
+        const CP_VALID = 0x02;
+        const HALF_CYCLE = 0x04;
+        const SUB_HALF_CYCLE = 0x08;
+    }
+}
+
+#[derive(Clone)]
+pub struct RxmRawxInfoIter<'a>(core::slice::ChunksExact<'a, u8>);
+
+impl<'a> RxmRawxInfoIter<'a> {
+    fn new(data: &'a [u8]) -> Self {
+        Self(data.chunks_exact(32))
+    }
+
+    fn is_valid(bytes: &'a [u8]) -> bool {
+        bytes.len() % 32 == 0
+    }
+}
+
+impl<'a> core::iter::Iterator for RxmRawxInfoIter<'a> {
+    type Item = RxmRawxInfoRef<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(RxmRawxInfoRef)
+    }
+}
+
+impl<'a> core::fmt::Debug for RxmRawxInfoIter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RxmRawxInfoIter").finish()
+    }
+}
+
 define_recv_packets!(
     enum PacketRef {
         _ = UbxUnknownPacketRef,
@@ -2121,9 +2450,14 @@ define_recv_packets!(
         MonHw,
         RxmRtcm,
         EsfMeas,
+        EsfIns,
+        HnrPvt,
         NavAtt,
         NavClock,
         NavVelECEF,
         MgaGpsEPH,
+        RxmRawx,
+        RxmSfrbx,
+        EsfRaw
     }
 );
