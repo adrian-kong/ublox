@@ -1990,6 +1990,7 @@ pub struct EsfMeasInfo<'a> {
     calib_tag: Option<u32>,
 }
 
+#[derive(Clone)]
 pub struct U32Iter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> U32Iter<'a> {
@@ -2009,6 +2010,15 @@ impl<'a> core::iter::Iterator for U32Iter<'a> {
         self.0
             .next()
             .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+    }
+}
+
+impl serde::Serialize for U32Iter<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.clone())
     }
 }
 
@@ -2113,18 +2123,18 @@ where
     }
 }
 
-impl serde::Serialize for EsfRawRef<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_map(None)?;
-        state.serialize_entry("packet_name", "EsfRaw")?;
-        state.serialize_entry("msss", &self.msss().to_string())?;
-        state.serialize_entry("iter", &SerializeIter(self.iter().into()))?;
-        state.end()
-    }
-}
+// impl serde::Serialize for EsfRawRef<'_> {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let mut state = serializer.serialize_map(None)?;
+//         state.serialize_entry("packet_name", "EsfRaw")?;
+//         state.serialize_entry("msss", &self.msss().to_string())?;
+//         state.serialize_entry("iter", &SerializeIter(self.iter().into()))?;
+//         state.end()
+//     }
+// }
 
 #[ubx_packet_recv]
 #[ubx(class = 0x10, id = 0x15, fixed_payload_len = 36)]
@@ -2402,20 +2412,20 @@ pub struct RxmRawxInfo {
     reserved3: u8,
 }
 
-impl serde::Serialize for RxmRawxRef<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_map(None)?;
-        state.serialize_entry("packet_name", "RxmRawx")?;
-        state.serialize_entry("rcv_tow", &self.rcv_tow())?;
-        state.serialize_entry("rec_stat", &self.rec_stat())?;
-        // state.serialize_entry("msss", &self.msss().to_string())?;
-        state.serialize_entry("iter", &self.iter())?;
-        state.end()
-    }
-}
+// impl serde::Serialize for RxmRawxRef<'_> {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let mut state = serializer.serialize_map(None)?;
+//         state.serialize_entry("packet_name", "RxmRawx")?;
+//         state.serialize_entry("rcv_tow", &self.rcv_tow())?;
+//         state.serialize_entry("rec_stat", &self.rec_stat())?;
+//         // state.serialize_entry("msss", &self.msss().to_string())?;
+//         state.serialize_entry("iter", &self.iter())?;
+//         state.end()
+//     }
+// }
 
 #[ubx_extend_bitflags]
 #[ubx(from, rest_reserved)]
@@ -2449,34 +2459,6 @@ impl<'a> RxmRawxInfoIter<'a> {
 
     fn is_valid(bytes: &'a [u8]) -> bool {
         bytes.len() % 32 == 0
-    }
-}
-
-impl serde::Serialize for RxmRawxInfoRef<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_map(None)?;
-        state.serialize_entry("pr_mes", &self.pr_mes())?;
-        state.end()
-        // .debug_struct("RxmRawxInfo")
-        //     .field("pr_mes", &self.pr_mes())
-        //     .field("cp_mes", &self.cp_mes())
-        //     .field("do_mes", &self.do_mes())
-        //     .field("gnss_id", &self.gnss_id())
-        //     .field("sv_id", &self.sv_id())
-        //     .field("reserved2", &self.reserved2())
-        //     .field("freq_id", &self.freq_id())
-        //     .field("lock_time", &self.lock_time())
-        //     .field("cno", &self.cno())
-        //     .field("pr_stdev", &self.pr_stdev())
-        //     .field("cp_stdev", &self.cp_stdev())
-        //     .field("do_stdev", &self.do_stdev())
-        //     .field("trk_stat", &self.trk_stat())
-        //     .field("reserved3", &self.reserved3())
-        //     .finish()
-        // serializer.serialize_str(format!("{:?}", self).as_str())
     }
 }
 

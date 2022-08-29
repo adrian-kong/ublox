@@ -211,7 +211,7 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
         }
 
         #debug_impl
-        // #serialize_impl
+        #serialize_impl
     }
 }
 
