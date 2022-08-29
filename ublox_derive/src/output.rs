@@ -30,7 +30,7 @@ fn generate_debug_impl(pack_name: &str, ref_name: &Ident, pack_descr: &PackDesc)
 }
 
 fn generate_serialize_impl(
-    pack_name: &str,
+    _pack_name: &str,
     ref_name: &Ident,
     pack_descr: &PackDesc,
 ) -> TokenStream {

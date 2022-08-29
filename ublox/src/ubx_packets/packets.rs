@@ -7,13 +7,12 @@ use bitflags::bitflags;
 use chrono::prelude::*;
 use core::borrow::BorrowMut;
 use core::fmt;
-use core::fmt::{Debug, Formatter, Pointer};
+use core::fmt::{Debug, Formatter};
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::float::FloatCore;
 use serde::ser::{SerializeMap, SerializeSeq};
-use serde::{Serialize, Serializer};
-use std::cell;
-use std::cell::RefCell;
+use serde::Serializer;
+
 use std::convert::TryInto;
 use ublox_derive::{
     define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_packet_recv, ubx_packet_recv_send,
@@ -556,27 +555,27 @@ impl serde::Serialize for NavSatSvFlags {
         S: Serializer,
     {
         let mut state = serializer.serialize_map(Some(17))?;
-        state.serialize_entry("quality_ind", &self);
-        state.serialize_entry("quality_ind", &self.quality_ind());
-        state.serialize_entry("sv_used", &self.sv_used());
-        state.serialize_entry("health", &self.health());
+        state.serialize_entry("quality_ind", &self)?;
+        state.serialize_entry("quality_ind", &self.quality_ind())?;
+        state.serialize_entry("sv_used", &self.sv_used())?;
+        state.serialize_entry("health", &self.health())?;
         state.serialize_entry(
             "differential_correction_available",
             &self.differential_correction_available(),
-        );
-        state.serialize_entry("smoothed", &self.smoothed());
-        state.serialize_entry("orbit_source", &self.orbit_source());
-        state.serialize_entry("ephemeris_available", &self.ephemeris_available());
-        state.serialize_entry("almanac_available", &self.almanac_available());
-        state.serialize_entry("an_offline_available", &self.an_offline_available());
-        state.serialize_entry("an_auto_available", &self.an_auto_available());
-        state.serialize_entry("sbas_corr", &self.sbas_corr());
-        state.serialize_entry("rtcm_corr", &self.rtcm_corr());
-        state.serialize_entry("slas_corr", &self.slas_corr());
-        state.serialize_entry("spartn_corr", &self.spartn_corr());
-        state.serialize_entry("pr_corr", &self.pr_corr());
-        state.serialize_entry("cr_corr", &self.cr_corr());
-        state.serialize_entry("do_corr", &self.do_corr());
+        )?;
+        state.serialize_entry("smoothed", &self.smoothed())?;
+        state.serialize_entry("orbit_source", &self.orbit_source())?;
+        state.serialize_entry("ephemeris_available", &self.ephemeris_available())?;
+        state.serialize_entry("almanac_available", &self.almanac_available())?;
+        state.serialize_entry("an_offline_available", &self.an_offline_available())?;
+        state.serialize_entry("an_auto_available", &self.an_auto_available())?;
+        state.serialize_entry("sbas_corr", &self.sbas_corr())?;
+        state.serialize_entry("rtcm_corr", &self.rtcm_corr())?;
+        state.serialize_entry("slas_corr", &self.slas_corr())?;
+        state.serialize_entry("spartn_corr", &self.spartn_corr())?;
+        state.serialize_entry("pr_corr", &self.pr_corr())?;
+        state.serialize_entry("cr_corr", &self.cr_corr())?;
+        state.serialize_entry("do_corr", &self.do_corr())?;
         state.end()
     }
 }
@@ -2197,19 +2196,6 @@ where
     }
 }
 
-// impl serde::Serialize for EsfRawRef<'_> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer,
-//     {
-//         let mut state = serializer.serialize_map(None)?;
-//         state.serialize_entry("packet_name", "EsfRaw")?;
-//         state.serialize_entry("msss", &self.msss().to_string())?;
-//         state.serialize_entry("iter", &SerializeIter(self.iter().into()))?;
-//         state.end()
-//     }
-// }
-
 #[ubx_packet_recv]
 #[ubx(class = 0x10, id = 0x15, fixed_payload_len = 36)]
 struct EsfIns {
@@ -2485,21 +2471,6 @@ pub struct RxmRawxInfo {
     trk_stat: u8,
     reserved3: u8,
 }
-
-// impl serde::Serialize for RxmRawxRef<'_> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer,
-//     {
-//         let mut state = serializer.serialize_map(None)?;
-//         state.serialize_entry("packet_name", "RxmRawx")?;
-//         state.serialize_entry("rcv_tow", &self.rcv_tow())?;
-//         state.serialize_entry("rec_stat", &self.rec_stat())?;
-//         // state.serialize_entry("msss", &self.msss().to_string())?;
-//         state.serialize_entry("iter", &self.iter())?;
-//         state.end()
-//     }
-// }
 
 #[ubx_extend_bitflags]
 #[ubx(from, rest_reserved)]
