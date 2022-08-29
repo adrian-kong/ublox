@@ -11,11 +11,7 @@ fn main() {
     loop {
         match it.next() {
             Some(Ok(packet)) => {
-                if let RxmRawx(packet) = packet {
-                    // println!("{packet:?}");
-                    println!("{}", serde_json::to_string(&packet).unwrap());
-                }
-                // serde_json::to_string(packet)
+                println!("{}", serde_json::to_string_pretty(&packet).unwrap());
             }
             Some(Err(_)) => {}
             None => break,

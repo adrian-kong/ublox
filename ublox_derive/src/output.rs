@@ -50,7 +50,6 @@ fn generate_serialize_impl(
                 S: serde::Serializer,
             {
                 let mut state = serializer.serialize_map(None)?;
-                state.serialize_entry("pack_name", #pack_name)?;
                 #(#fields)*
                 state.end()
             }
@@ -602,7 +601,7 @@ pub fn generate_code_for_parse(recv_packs: &RecvPackets) -> TokenStream {
 
     quote! {
         #[doc = "All possible packets enum"]
-        #[derive(Debug)]
+        #[derive(Debug, serde::Serialize)]
         pub enum #union_enum_name<'a> {
             #(#pack_enum_variants),*,
             Unknown(#unknown_var<'a>)
