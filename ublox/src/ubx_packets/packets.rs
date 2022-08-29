@@ -550,7 +550,38 @@ impl fmt::Debug for NavSatSvFlags {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+impl serde::Serialize for NavSatSvFlags {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_map(Some(17))?;
+        state.serialize_entry("quality_ind", &self);
+        state.serialize_entry("quality_ind", &self.quality_ind());
+        state.serialize_entry("sv_used", &self.sv_used());
+        state.serialize_entry("health", &self.health());
+        state.serialize_entry(
+            "differential_correction_available",
+            &self.differential_correction_available(),
+        );
+        state.serialize_entry("smoothed", &self.smoothed());
+        state.serialize_entry("orbit_source", &self.orbit_source());
+        state.serialize_entry("ephemeris_available", &self.ephemeris_available());
+        state.serialize_entry("almanac_available", &self.almanac_available());
+        state.serialize_entry("an_offline_available", &self.an_offline_available());
+        state.serialize_entry("an_auto_available", &self.an_auto_available());
+        state.serialize_entry("sbas_corr", &self.sbas_corr());
+        state.serialize_entry("rtcm_corr", &self.rtcm_corr());
+        state.serialize_entry("slas_corr", &self.slas_corr());
+        state.serialize_entry("spartn_corr", &self.spartn_corr());
+        state.serialize_entry("pr_corr", &self.pr_corr());
+        state.serialize_entry("cr_corr", &self.cr_corr());
+        state.serialize_entry("do_corr", &self.do_corr());
+        state.end()
+    }
+}
+
+#[derive(Copy, Clone, Debug, serde::Serialize)]
 pub enum NavSatQualityIndicator {
     NoSignal,
     Searching,
@@ -560,14 +591,14 @@ pub enum NavSatQualityIndicator {
     CarrierLock,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, serde::Serialize)]
 pub enum NavSatSvHealth {
     Healthy,
     Unhealthy,
     Unknown(u8),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, serde::Serialize)]
 pub enum NavSatOrbitSource {
     NoInfoAvailable,
     Ephemeris,
@@ -1179,7 +1210,7 @@ impl From<u32> for UartMode {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, serde::Serialize, Clone, Copy)]
 pub enum DataBits {
     Seven,
     Eight,
@@ -1209,7 +1240,7 @@ impl From<u32> for DataBits {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, serde::Serialize, Clone, Copy)]
 pub enum Parity {
     Even,
     Odd,
@@ -1241,7 +1272,7 @@ impl From<u32> for Parity {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, serde::Serialize, Clone, Copy)]
 pub enum StopBits {
     One,
     OneHalf,
@@ -1995,6 +2026,7 @@ struct EsfMeas {
     info: [u8; 0],
 }
 
+#[derive(serde::Serialize)]
 pub struct EsfMeasInfo<'a> {
     flags: u16,
     id: u16,
