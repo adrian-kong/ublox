@@ -39,7 +39,7 @@ fn generate_serialize_impl(
         let field_name = &field.name;
         let field_accessor = field.intermediate_field_name();
         fields.push(quote! {
-            .field(stringify!(#field_name), &self.#field_accessor())
+            state.serialize_entry(stringify!(#field_name), &self.#field_accessor())?;
         });
     }
 
@@ -49,8 +49,9 @@ fn generate_serialize_impl(
             where
                 S: serde::Serializer,
             {
-                let mut state = serializer.serialize_struct(#pack_name, 0)?;
-                // state.serialize_field()
+                let mut state = serializer.serialize_map(None)?;
+                state.serialize_entry("pack_name", #pack_name)?;
+                #(#fields)*
                 state.end()
             }
         }
@@ -210,7 +211,7 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
         }
 
         #debug_impl
-        #serialize_impl
+        // #serialize_impl
     }
 }
 
@@ -542,6 +543,17 @@ pub fn generate_code_to_extend_bitflags(bitflags: BitFlagsMacro) -> syn::Result<
         },
     };
 
+    let serde = quote! {
+        impl serde::Serialize for #name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                serializer.serialize_str(format!("{:?}", self).as_str())
+            }
+        }
+    };
+
     Ok(quote! {
         bitflags! {
             #(#attrs)*
@@ -551,6 +563,7 @@ pub fn generate_code_to_extend_bitflags(bitflags: BitFlagsMacro) -> syn::Result<
         }
         #from
         #into
+        #serde
     })
 }
 
@@ -589,7 +602,7 @@ pub fn generate_code_for_parse(recv_packs: &RecvPackets) -> TokenStream {
 
     quote! {
         #[doc = "All possible packets enum"]
-        #[derive(Debug, serde::Serialize)]
+        #[derive(Debug)]
         pub enum #union_enum_name<'a> {
             #(#pack_enum_variants),*,
             Unknown(#unknown_var<'a>)

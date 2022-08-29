@@ -1,6 +1,6 @@
+use crate::PacketRef::RxmRawx;
 use std::io;
 use std::io::Read;
-
 use ublox::*;
 
 fn main() {
@@ -11,7 +11,11 @@ fn main() {
     loop {
         match it.next() {
             Some(Ok(packet)) => {
-                println!("{packet:?}");
+                if let RxmRawx(packet) = packet {
+                    // println!("{packet:?}");
+                    println!("{}", serde_json::to_string(&packet).unwrap());
+                }
+                // serde_json::to_string(packet)
             }
             Some(Err(_)) => {}
             None => break,

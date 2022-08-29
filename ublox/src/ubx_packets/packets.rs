@@ -5,11 +5,15 @@ use super::{
 use crate::error::{MemWriterError, ParserError};
 use bitflags::bitflags;
 use chrono::prelude::*;
+use core::borrow::BorrowMut;
 use core::fmt;
-use core::fmt::Formatter;
+use core::fmt::{Debug, Formatter, Pointer};
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::float::FloatCore;
-use serde::ser::SerializeStruct;
+use serde::ser::{SerializeMap, SerializeSeq};
+use serde::{Serialize, Serializer};
+use std::cell;
+use std::cell::RefCell;
 use std::convert::TryInto;
 use ublox_derive::{
     define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_packet_recv, ubx_packet_recv_send,
@@ -2059,7 +2063,6 @@ struct EsfRaw {
     iter: [u8; 0],
 }
 
-#[derive(Clone)]
 pub struct EsfRawIter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> EsfRawIter<'a> {
@@ -2072,7 +2075,7 @@ impl<'a> EsfRawIter<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct EsfRawInfo {
     data: u32,
     sensor_time_tag: u32,
@@ -2092,6 +2095,34 @@ impl<'a> core::iter::Iterator for EsfRawIter<'a> {
 impl<'a> core::fmt::Debug for EsfRawIter<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("EsfRawIter").finish()
+    }
+}
+
+struct SerializeIter<T>(core::cell::RefCell<T>);
+
+impl<T> serde::Serialize for SerializeIter<T>
+where
+    T: Iterator,
+    T::Item: serde::Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_seq(self.0.borrow_mut().by_ref())
+    }
+}
+
+impl serde::Serialize for EsfRawRef<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_map(None)?;
+        state.serialize_entry("packet_name", "EsfRaw")?;
+        state.serialize_entry("msss", &self.msss().to_string())?;
+        state.serialize_entry("iter", &SerializeIter(self.iter().into()))?;
+        state.end()
     }
 }
 
@@ -2349,6 +2380,7 @@ bitflags! {
 
 #[ubx_packet_recv]
 #[ubx(class = 0x02, id = 0x15, fixed_payload_len = 32)]
+#[derive(Debug, serde::Serialize)]
 pub struct RxmRawxInfo {
     pr_mes: f64,
     cp_mes: f64,
@@ -2368,6 +2400,21 @@ pub struct RxmRawxInfo {
     #[ubx(map_type = TrkStatFlags)]
     trk_stat: u8,
     reserved3: u8,
+}
+
+impl serde::Serialize for RxmRawxRef<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_map(None)?;
+        state.serialize_entry("packet_name", "RxmRawx")?;
+        state.serialize_entry("rcv_tow", &self.rcv_tow())?;
+        state.serialize_entry("rec_stat", &self.rec_stat())?;
+        // state.serialize_entry("msss", &self.msss().to_string())?;
+        state.serialize_entry("iter", &self.iter())?;
+        state.end()
+    }
 }
 
 #[ubx_extend_bitflags]
@@ -2392,7 +2439,6 @@ bitflags! {
     }
 }
 
-#[derive(Clone)]
 pub struct RxmRawxInfoIter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> RxmRawxInfoIter<'a> {
@@ -2402,6 +2448,17 @@ impl<'a> RxmRawxInfoIter<'a> {
 
     fn is_valid(bytes: &'a [u8]) -> bool {
         bytes.len() % 32 == 0
+    }
+}
+
+impl serde::Serialize for RxmRawxInfoIter<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let cell = RefCell::new(self);
+        serializer.collect_seq(cell.borrow_mut().as_ref());
+        todo!()
     }
 }
 
