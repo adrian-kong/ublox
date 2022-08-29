@@ -636,6 +636,7 @@ struct NavSatSvInfo {
     }
 }*/
 
+#[derive(Clone)]
 pub struct NavSatIter<'a> {
     data: &'a [u8],
     offset: usize,
@@ -658,6 +659,15 @@ impl<'a> core::iter::Iterator for NavSatIter<'a> {
 impl fmt::Debug for NavSatIter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NavSatIter").finish()
+    }
+}
+
+impl serde::Serialize for NavSatIter<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.clone())
     }
 }
 
@@ -1922,6 +1932,7 @@ pub enum AntennaPower {
     DontKnow = 2,
 }
 
+#[derive(Clone)]
 pub struct MonVerExtensionIter<'a> {
     data: &'a [u8],
     offset: usize,
@@ -1944,6 +1955,15 @@ impl<'a> core::iter::Iterator for MonVerExtensionIter<'a> {
 impl fmt::Debug for MonVerExtensionIter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MonVerExtensionIter").finish()
+    }
+}
+
+impl serde::Serialize for MonVerExtensionIter<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.clone())
     }
 }
 
@@ -2117,6 +2137,7 @@ struct EsfRaw {
     iter: [u8; 0],
 }
 
+#[derive(Clone)]
 pub struct EsfRawIter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> EsfRawIter<'a> {
@@ -2149,6 +2170,15 @@ impl<'a> core::iter::Iterator for EsfRawIter<'a> {
 impl<'a> core::fmt::Debug for EsfRawIter<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("EsfRawIter").finish()
+    }
+}
+
+impl serde::Serialize for EsfRawIter<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.clone())
     }
 }
 
