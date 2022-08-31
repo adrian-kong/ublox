@@ -353,7 +353,7 @@ bitflags! {
 
 /// Fix Status Information
 #[repr(transparent)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, serde::Serialize)]
 pub struct FixStatusInfo(u8);
 
 impl FixStatusInfo {
@@ -384,18 +384,6 @@ impl fmt::Debug for FixStatusInfo {
     }
 }
 
-impl serde::Serialize for FixStatusInfo {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry("has_pr_prr_correction", &self.has_pr_prr_correction())?;
-        state.serialize_entry("map_matching", &self.map_matching())?;
-        state.end()
-    }
-}
-
 #[derive(Copy, serde::Serialize, Clone, Debug)]
 pub enum MapMatchingStatus {
     None = 0,
@@ -422,7 +410,7 @@ enum NavStatusFlags2 {
 }
 
 #[repr(transparent)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, serde::Serialize)]
 pub struct NavSatSvFlags(u32);
 
 impl NavSatSvFlags {
@@ -550,36 +538,6 @@ impl fmt::Debug for NavSatSvFlags {
     }
 }
 
-impl serde::Serialize for NavSatSvFlags {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_map(Some(17))?;
-        state.serialize_entry("quality_ind", &self.quality_ind())?;
-        state.serialize_entry("sv_used", &self.sv_used())?;
-        state.serialize_entry("health", &self.health())?;
-        state.serialize_entry(
-            "differential_correction_available",
-            &self.differential_correction_available(),
-        )?;
-        state.serialize_entry("smoothed", &self.smoothed())?;
-        state.serialize_entry("orbit_source", &self.orbit_source())?;
-        state.serialize_entry("ephemeris_available", &self.ephemeris_available())?;
-        state.serialize_entry("almanac_available", &self.almanac_available())?;
-        state.serialize_entry("an_offline_available", &self.an_offline_available())?;
-        state.serialize_entry("an_auto_available", &self.an_auto_available())?;
-        state.serialize_entry("sbas_corr", &self.sbas_corr())?;
-        state.serialize_entry("rtcm_corr", &self.rtcm_corr())?;
-        state.serialize_entry("slas_corr", &self.slas_corr())?;
-        state.serialize_entry("spartn_corr", &self.spartn_corr())?;
-        state.serialize_entry("pr_corr", &self.pr_corr())?;
-        state.serialize_entry("cr_corr", &self.cr_corr())?;
-        state.serialize_entry("do_corr", &self.do_corr())?;
-        state.end()
-    }
-}
-
 #[derive(Copy, Clone, Debug, serde::Serialize)]
 pub enum NavSatQualityIndicator {
     NoSignal,
@@ -620,20 +578,6 @@ struct NavSatSvInfo {
     #[ubx(map_type = NavSatSvFlags)]
     flags: u32,
 }
-
-/*impl fmt::Debug for NavSatSvInfoRef<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("NavSatSvInfo")
-            .field("gnss_id", &self.gnss_id())
-            .field("sv_id", &self.sv_id())
-            .field("cno", &self.cno())
-            .field("elev", &self.elev())
-            .field("azim", &self.azim())
-            .field("pr_res", &self.pr_res())
-            .field("flags", &self.flags())
-            .finish()
-    }
-}*/
 
 #[ubx_iter]
 pub struct NavSatIter<'a> {
@@ -1994,7 +1938,7 @@ struct RxmRtcm {
 #[ubx(class = 0x10, id = 0x02, max_payload_len = 1240)]
 struct EsfMeas {
     time_tag: u32,
-    #[ubx(map_type = EsfMeasInfo, from = EsfMeasInfo::new)]
+    #[ubx(map_type = EsfMeasInfo, from = EsfMeasInfo::new, flatten)]
     info: [u8; 0],
 }
 

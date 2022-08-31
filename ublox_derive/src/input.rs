@@ -445,6 +445,7 @@ mod kw {
     syn::custom_keyword!(is_valid);
     syn::custom_keyword!(get_as_ref);
     syn::custom_keyword!(into);
+    syn::custom_keyword!(flatten);
 }
 
 #[derive(Default)]
@@ -454,6 +455,7 @@ pub struct PackFieldMap {
     pub alias: Option<Ident>,
     pub convert_may_fail: bool,
     pub get_as_ref: bool,
+    pub flatten: bool,
 }
 
 impl PackFieldMap {
@@ -510,6 +512,9 @@ impl Parse for PackFieldMap {
                 input.parse::<kw::into>()?;
                 input.parse::<Token![=]>()?;
                 custom_into_fn = Some(input.parse()?);
+            } else if lookahead.peek(kw::flatten) {
+                input.parse::<kw::flatten>()?;
+                map.flatten = true;
             } else {
                 return Err(lookahead.error());
             }

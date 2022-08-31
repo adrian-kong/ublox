@@ -38,9 +38,16 @@ fn generate_serialize_impl(
     for field in pack_descr.fields.iter() {
         let field_name = &field.name;
         let field_accessor = field.intermediate_field_name();
-        fields.push(quote! {
-            state.serialize_entry(stringify!(#field_name), &self.#field_accessor())?;
-        });
+        let token = if field.map.flatten {
+            quote! {
+                state.serialize_entry(stringify!(#field_name), &self.#field_accessor())?;
+            }
+        } else {
+            quote! {
+                serde::ser::Serialize::serialize(&self.#field_accessor(), serde::__private::ser::FlatMapSerializer(&mut state))?;
+            }
+        };
+        fields.push(token);
     }
 
     quote! {
@@ -464,19 +471,18 @@ pub fn generate_code_to_extend_enum(ubx_enum: &UbxExtendEnum) -> TokenStream {
     code
 }
 
-pub fn generate_iter_output(input: TokenStream, struct_ident: Ident) -> syn::Result<TokenStream> {
-    let name = format!("{struct_ident}");
+pub fn generate_iter_output(input: TokenStream, name: Ident) -> syn::Result<TokenStream> {
     Ok(quote! {
         #[derive(Clone)]
         #input
 
-        impl core::fmt::Debug for #struct_ident<'_> {
+        impl core::fmt::Debug for #name<'_> {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.debug_struct(#name).finish()
+                f.debug_struct(stringify!(#name)).finish()
             }
         }
 
-        impl serde::Serialize for #struct_ident<'_> {
+        impl serde::Serialize for #name<'_> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: serde::Serializer,

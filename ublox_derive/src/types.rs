@@ -69,6 +69,7 @@ pub struct PackFieldMapDesc {
     pub alias: Option<Ident>,
     pub convert_may_fail: bool,
     pub get_as_ref: bool,
+    pub flatten: bool,
 }
 
 pub struct MapTypeDesc {
@@ -124,6 +125,7 @@ impl PackFieldMapDesc {
             alias: x.alias,
             convert_may_fail: x.convert_may_fail,
             get_as_ref: x.get_as_ref,
+            flatten: false,
         }
     }
 }
