@@ -13,6 +13,7 @@ use num_traits::float::FloatCore;
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::Serializer;
 
+use crate::ubx_packets::packets::mon_ver::is_cstr_valid;
 use std::convert::TryInto;
 use ublox_derive::{
     define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_iter, ubx_packet_recv,
@@ -640,6 +641,16 @@ pub struct NavSatIter<'a> {
     offset: usize,
 }
 
+impl<'a> NavSatIter<'a> {
+    fn new(data: &'a [u8]) -> Self {
+        Self { data, offset: 0 }
+    }
+
+    fn is_valid(bytes: &[u8]) -> bool {
+        bytes.len() % 12 == 0
+    }
+}
+
 impl<'a> core::iter::Iterator for NavSatIter<'a> {
     type Item = NavSatSvInfoRef<'a>;
 
@@ -667,27 +678,10 @@ struct NavSat {
 
     reserved: [u8; 2],
 
-    #[ubx(map_type = NavSatIter,
-        may_fail,
-        is_valid = navsat::is_valid,
-        from = navsat::convert_to_iter,
-        get_as_ref)]
+    #[ubx(map_type = NavSatIter, may_fail,
+        is_valid = NavSatIter::is_valid,
+        from = NavSatIter::new, get_as_ref)]
     svs: [u8; 0],
-}
-
-mod navsat {
-    use super::NavSatIter;
-
-    pub(crate) fn convert_to_iter(bytes: &[u8]) -> NavSatIter {
-        NavSatIter {
-            data: bytes,
-            offset: 0,
-        }
-    }
-
-    pub(crate) fn is_valid(bytes: &[u8]) -> bool {
-        bytes.len() % 12 == 0
-    }
 }
 
 /// Odometer solution
@@ -1921,6 +1915,16 @@ pub struct MonVerExtensionIter<'a> {
     offset: usize,
 }
 
+impl<'a> MonVerExtensionIter<'a> {
+    fn new(data: &'a [u8]) -> Self {
+        Self { data, offset: 0 }
+    }
+
+    fn is_valid(payload: &[u8]) -> bool {
+        payload.len() % 30 == 0 && payload.chunks(30).find(|&c| !is_cstr_valid(c)).is_some()
+    }
+}
+
 impl<'a> core::iter::Iterator for MonVerExtensionIter<'a> {
     type Item = &'a str;
 
@@ -1948,8 +1952,8 @@ struct MonVer {
 
     /// Extended software information strings
     #[ubx(map_type = MonVerExtensionIter, may_fail,
-          from = mon_ver::extension_to_iter,
-          is_valid = mon_ver::is_extension_valid)]
+          from = MonVerExtensionIter::new,
+          is_valid = MonVerExtensionIter::is_valid)]
     extension: [u8; 0],
 }
 
@@ -1973,26 +1977,6 @@ mod mon_ver {
             }
         };
         core::str::from_utf8(&bytes[0..null_pos]).is_ok()
-    }
-
-    pub(crate) fn is_extension_valid(payload: &[u8]) -> bool {
-        if payload.len() % 30 == 0 {
-            for chunk in payload.chunks(30) {
-                if !is_cstr_valid(chunk) {
-                    return false;
-                }
-            }
-            true
-        } else {
-            false
-        }
-    }
-
-    pub(crate) fn extension_to_iter(payload: &[u8]) -> MonVerExtensionIter {
-        MonVerExtensionIter {
-            data: payload,
-            offset: 0,
-        }
     }
 }
 
