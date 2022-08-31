@@ -125,7 +125,7 @@ impl PackFieldMapDesc {
             alias: x.alias,
             convert_may_fail: x.convert_may_fail,
             get_as_ref: x.get_as_ref,
-            flatten: false,
+            flatten: x.flatten,
         }
     }
 }

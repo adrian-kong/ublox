@@ -14,6 +14,7 @@ use serde::ser::{SerializeMap, SerializeSeq};
 use serde::Serializer;
 
 use crate::ubx_packets::packets::mon_ver::is_cstr_valid;
+use num_traits::real::Real;
 use std::convert::TryInto;
 use ublox_derive::{
     define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_iter, ubx_packet_recv,

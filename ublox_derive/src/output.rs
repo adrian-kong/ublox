@@ -40,11 +40,11 @@ fn generate_serialize_impl(
         let field_accessor = field.intermediate_field_name();
         let token = if field.map.flatten {
             quote! {
-                state.serialize_entry(stringify!(#field_name), &self.#field_accessor())?;
+                serde::ser::Serialize::serialize(&self.#field_accessor(), serde::__private::ser::FlatMapSerializer(&mut state))?;
             }
         } else {
             quote! {
-                serde::ser::Serialize::serialize(&self.#field_accessor(), serde::__private::ser::FlatMapSerializer(&mut state))?;
+                state.serialize_entry(stringify!(#field_name), &self.#field_accessor())?;
             }
         };
         fields.push(token);
