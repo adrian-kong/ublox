@@ -4,7 +4,7 @@ use crate::types::{
     UbxTypeFromFn, UbxTypeIntoFn,
 };
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use std::{collections::HashSet, convert::TryFrom};
 use syn::{parse_quote, Ident, Type};
 
@@ -464,6 +464,29 @@ pub fn generate_code_to_extend_enum(ubx_enum: &UbxExtendEnum) -> TokenStream {
     code
 }
 
+pub fn generate_iter_output(input: TokenStream, struct_ident: Ident) -> syn::Result<TokenStream> {
+    let name = format!("{struct_ident}");
+    Ok(quote! {
+        #[derive(Clone)]
+        #input
+
+        impl core::fmt::Debug for #struct_ident<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                f.debug_struct(#name).finish()
+            }
+        }
+
+        impl serde::Serialize for #struct_ident<'_> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                serializer.collect_seq(self.clone())
+            }
+        }
+    })
+}
+
 pub fn generate_code_to_extend_bitflags(bitflags: BitFlagsMacro) -> syn::Result<TokenStream> {
     match bitflags.rest_handling {
         Some(UbxEnumRestHandling::ErrorProne) | None => {
@@ -542,13 +565,16 @@ pub fn generate_code_to_extend_bitflags(bitflags: BitFlagsMacro) -> syn::Result<
         },
     };
 
+    let serialize_fn = format_ident!("serialize_{}", repr_ty.to_token_stream().to_string());
     let serde = quote! {
         impl serde::Serialize for #name {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: serde::Serializer,
             {
-                serializer.serialize_str(format!("{:?}", self).as_str())
+                // serializing debug gives naming
+                // serializer.serialize_str(format!("{:?}", self).as_str())
+                serializer.#serialize_fn(self.bits())
             }
         }
     };

@@ -1,6 +1,6 @@
-
 use std::io;
 use std::io::Read;
+use ublox::PacketRef::NavStatus;
 use ublox::*;
 
 fn main() {
@@ -11,6 +11,9 @@ fn main() {
     loop {
         match it.next() {
             Some(Ok(packet)) => {
+                // if let NavStatus(packet) = packet {
+                //     println!("{:?}", packet.fix_stat());
+                // }
                 println!("{}", serde_json::to_string_pretty(&packet).unwrap());
             }
             Some(Err(_)) => {}

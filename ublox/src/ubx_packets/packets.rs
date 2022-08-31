@@ -15,8 +15,8 @@ use serde::Serializer;
 
 use std::convert::TryInto;
 use ublox_derive::{
-    define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_packet_recv, ubx_packet_recv_send,
-    ubx_packet_send,
+    define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_iter, ubx_packet_recv,
+    ubx_packet_recv_send, ubx_packet_send,
 };
 
 /// Geodetic Position Solution
@@ -555,7 +555,6 @@ impl serde::Serialize for NavSatSvFlags {
         S: Serializer,
     {
         let mut state = serializer.serialize_map(Some(17))?;
-        state.serialize_entry("quality_ind", &self)?;
         state.serialize_entry("quality_ind", &self.quality_ind())?;
         state.serialize_entry("sv_used", &self.sv_used())?;
         state.serialize_entry("health", &self.health())?;
@@ -635,7 +634,7 @@ struct NavSatSvInfo {
     }
 }*/
 
-#[derive(Clone)]
+#[ubx_iter]
 pub struct NavSatIter<'a> {
     data: &'a [u8],
     offset: usize,
@@ -652,21 +651,6 @@ impl<'a> core::iter::Iterator for NavSatIter<'a> {
         } else {
             None
         }
-    }
-}
-
-impl fmt::Debug for NavSatIter<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("NavSatIter").finish()
-    }
-}
-
-impl serde::Serialize for NavSatIter<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.clone())
     }
 }
 
@@ -1931,7 +1915,7 @@ pub enum AntennaPower {
     DontKnow = 2,
 }
 
-#[derive(Clone)]
+#[ubx_iter]
 pub struct MonVerExtensionIter<'a> {
     data: &'a [u8],
     offset: usize,
@@ -1948,21 +1932,6 @@ impl<'a> core::iter::Iterator for MonVerExtensionIter<'a> {
         } else {
             None
         }
-    }
-}
-
-impl fmt::Debug for MonVerExtensionIter<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MonVerExtensionIter").finish()
-    }
-}
-
-impl serde::Serialize for MonVerExtensionIter<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.clone())
     }
 }
 
@@ -2045,7 +2014,7 @@ struct EsfMeas {
     info: [u8; 0],
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Debug)]
 pub struct EsfMeasInfo<'a> {
     flags: u16,
     id: u16,
@@ -2053,7 +2022,7 @@ pub struct EsfMeasInfo<'a> {
     calib_tag: Option<u32>,
 }
 
-#[derive(Clone)]
+#[ubx_iter]
 pub struct U32Iter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> U32Iter<'a> {
@@ -2073,21 +2042,6 @@ impl<'a> core::iter::Iterator for U32Iter<'a> {
         self.0
             .next()
             .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
-    }
-}
-
-impl serde::Serialize for U32Iter<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.clone())
-    }
-}
-
-impl<'a> core::fmt::Debug for U32Iter<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("U32Iter").finish()
     }
 }
 
@@ -2115,17 +2069,6 @@ impl<'a> EsfMeasInfo<'a> {
     }
 }
 
-impl<'a> core::fmt::Debug for EsfMeasInfo<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("EsfMeasInfo")
-            .field("flags", &self.flags)
-            .field("id", &self.id)
-            .field("data", &self.data)
-            .field("calib_tag", &self.calib_tag)
-            .finish()
-    }
-}
-
 #[ubx_packet_recv]
 #[ubx(class = 0x10, id = 0x03, max_payload_len = 1240)]
 struct EsfRaw {
@@ -2136,7 +2079,7 @@ struct EsfRaw {
     iter: [u8; 0],
 }
 
-#[derive(Clone)]
+#[ubx_iter]
 pub struct EsfRawIter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> EsfRawIter<'a> {
@@ -2147,12 +2090,6 @@ impl<'a> EsfRawIter<'a> {
     fn is_valid(bytes: &'a [u8]) -> bool {
         bytes.len() % 8 == 0
     }
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct EsfRawInfo {
-    data: u32,
-    sensor_time_tag: u32,
 }
 
 impl<'a> core::iter::Iterator for EsfRawIter<'a> {
@@ -2166,34 +2103,10 @@ impl<'a> core::iter::Iterator for EsfRawIter<'a> {
     }
 }
 
-impl<'a> core::fmt::Debug for EsfRawIter<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("EsfRawIter").finish()
-    }
-}
-
-impl serde::Serialize for EsfRawIter<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.clone())
-    }
-}
-
-struct SerializeIter<T>(core::cell::RefCell<T>);
-
-impl<T> serde::Serialize for SerializeIter<T>
-where
-    T: Iterator,
-    T::Item: serde::Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_seq(self.0.borrow_mut().by_ref())
-    }
+#[derive(Debug, serde::Serialize)]
+pub struct EsfRawInfo {
+    data: u32,
+    sensor_time_tag: u32,
 }
 
 #[ubx_packet_recv]
@@ -2494,7 +2407,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone)]
+#[ubx_iter]
 pub struct RxmRawxInfoIter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> RxmRawxInfoIter<'a> {
@@ -2507,26 +2420,11 @@ impl<'a> RxmRawxInfoIter<'a> {
     }
 }
 
-impl serde::Serialize for RxmRawxInfoIter<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.clone())
-    }
-}
-
 impl<'a> core::iter::Iterator for RxmRawxInfoIter<'a> {
     type Item = RxmRawxInfoRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(RxmRawxInfoRef)
-    }
-}
-
-impl<'a> core::fmt::Debug for RxmRawxInfoIter<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RxmRawxInfoIter").finish()
     }
 }
 

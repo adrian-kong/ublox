@@ -6,12 +6,33 @@ mod output;
 mod tests;
 mod types;
 
+use crate::output::generate_iter_output;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
+use std::any::Any;
 use syn::{
     parse_macro_input, punctuated::Punctuated, spanned::Spanned, Attribute, Data, DeriveInput,
     Fields, Ident, Variant,
 };
+
+#[proc_macro_attribute]
+pub fn ubx_iter(
+    _attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ret = if let Data::Struct(data) = &input.data {
+        generate_code_for_iterators(input.to_token_stream(), input.ident)
+    } else {
+        Err(syn::Error::new(
+            input.ident.span(),
+            "This attribute can only be used for struct",
+        ))
+    };
+
+    ret.map(|x| x.into())
+        .unwrap_or_else(|err| err.to_compile_error().into())
+}
 
 #[proc_macro_attribute]
 pub fn ubx_packet_recv(
@@ -106,6 +127,10 @@ pub fn define_recv_packets(input: proc_macro::TokenStream) -> proc_macro::TokenS
     do_define_recv_packets(input.into())
         .map(|x| x.into())
         .unwrap_or_else(|err| err.to_compile_error().into())
+}
+
+fn generate_code_for_iterators(input: TokenStream, name: Ident) -> syn::Result<TokenStream> {
+    generate_iter_output(input, name)
 }
 
 fn generate_code_for_recv_packet(
