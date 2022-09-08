@@ -624,6 +624,7 @@ pub fn generate_code_for_parse(recv_packs: &RecvPackets) -> TokenStream {
     let mut pack_enum_variants = Vec::with_capacity(recv_packs.all_packets.len());
     let mut matches = Vec::with_capacity(recv_packs.all_packets.len());
     let mut class_id_matches = Vec::with_capacity(recv_packs.all_packets.len());
+    let mut serializers = Vec::with_capacity(recv_packs.all_packets.len());
 
     for name in &recv_packs.all_packets {
         let ref_name = format_ident!("{}Ref", name);
@@ -640,6 +641,15 @@ pub fn generate_code_for_parse(recv_packs: &RecvPackets) -> TokenStream {
         class_id_matches.push(quote! {
             #union_enum_name::#name(_) => (#name::CLASS, #name::ID)
         });
+
+        serializers.push(quote! {
+            #union_enum_name::#name(ref msg) => crate::ubx_packets::PacketSerializer {
+                class: #name::CLASS,
+                msg_id: #name::ID,
+                msg,
+            }
+            .serialize(serializer)
+        });
     }
 
     let unknown_var = &recv_packs.unknown_ty;
@@ -653,7 +663,7 @@ pub fn generate_code_for_parse(recv_packs: &RecvPackets) -> TokenStream {
 
     quote! {
         #[doc = "All possible packets enum"]
-        #[derive(Debug, serde::Serialize)]
+        #[derive(Debug)]
         pub enum #union_enum_name<'a> {
             #(#pack_enum_variants),*,
             Unknown(#unknown_var<'a>)
@@ -683,6 +693,25 @@ pub fn generate_code_for_parse(recv_packs: &RecvPackets) -> TokenStream {
             [a, b][(a < b) as usize]
         }
         pub(crate) const MAX_PAYLOAD_LEN: u16 = #max_payload_len_calc;
+        #[derive(serde::Serialize)]
+        pub struct PacketSerializer<'a, T> {
+            class: u8,
+            msg_id: u8,
+            #[serde(flatten)]
+            msg: &'a T,
+        }
+
+        impl serde::Serialize for #union_enum_name<'_> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                match *self {
+                    #(#serializers),*,
+                    #union_enum_name::Unknown(ref pack) => pack.serialize(serializer),
+                }
+            }
+        }
     }
 }
 
