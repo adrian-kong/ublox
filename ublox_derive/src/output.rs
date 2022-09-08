@@ -5,8 +5,10 @@ use crate::types::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
+use std::slice::SliceIndex;
 use std::{collections::HashSet, convert::TryFrom};
-use syn::{parse_quote, Ident, Type};
+use syn::spanned::Spanned;
+use syn::{parse_macro_input, parse_quote, Ident, Type};
 
 fn generate_debug_impl(pack_name: &str, ref_name: &Ident, pack_descr: &PackDesc) -> TokenStream {
     let mut fields = vec![];
@@ -168,6 +170,24 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
                     #(#get_value_lines)*
                 }
             });
+            if f.map.flatten {
+                if let Some(ref field) = f.map.flatten_fields {
+                    for i in (0..field.len()).step_by(2) {
+                        if let (Some(f_name), Some(f_type)) = (field.get(i), field.get(i + 1)) {
+                            let field_name = format_ident!("{f_name}");
+                            let field_type = format_ident!("{f_type}");
+                            getters.push(quote! {
+                                #[doc = #field_comment]
+                                #[inline]
+                                pub fn #field_name(&self) -> #field_type {
+                                    let info = self.#get_name();
+                                    info.#field_name
+                                }
+                            });
+                        }
+                    }
+                }
+            }
         }
     }
     let struct_comment = &pack_descr.comment;

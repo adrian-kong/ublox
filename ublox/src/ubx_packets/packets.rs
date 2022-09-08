@@ -1939,16 +1939,22 @@ struct RxmRtcm {
 #[ubx(class = 0x10, id = 0x02, max_payload_len = 1240)]
 struct EsfMeas {
     time_tag: u32,
-    #[ubx(map_type = EsfMeasInfo, from = EsfMeasInfo::new, flatten)]
+    #[ubx(
+        map_type = EsfMeasInfo,
+        from = EsfMeasInfo::new,
+        flatten,
+        flat_fields = ["flags", "u16", "id", "u16", "data", "U32Iter"]
+    )]
+    //, "calib_tag", "Option<u32>"
     info: [u8; 0],
 }
 
 #[derive(serde::Serialize, Debug)]
 pub struct EsfMeasInfo<'a> {
-    flags: u16,
-    id: u16,
-    data: U32Iter<'a>,
-    calib_tag: Option<u32>,
+    pub flags: u16,
+    pub id: u16,
+    pub data: U32Iter<'a>,
+    pub calib_tag: Option<u32>,
 }
 
 #[ubx_iter]

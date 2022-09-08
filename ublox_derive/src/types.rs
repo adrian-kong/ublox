@@ -70,6 +70,7 @@ pub struct PackFieldMapDesc {
     pub convert_may_fail: bool,
     pub get_as_ref: bool,
     pub flatten: bool,
+    pub flatten_fields: Option<Vec<String>>,
 }
 
 pub struct MapTypeDesc {
@@ -126,6 +127,7 @@ impl PackFieldMapDesc {
             convert_may_fail: x.convert_may_fail,
             get_as_ref: x.get_as_ref,
             flatten: x.flatten,
+            flatten_fields: x.flatten_fields,
         }
     }
 }

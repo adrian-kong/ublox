@@ -5,10 +5,12 @@ use crate::types::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
+use std::convert::TryFrom;
 use std::num::NonZeroUsize;
+use syn::Lit::Str;
 use syn::{
-    braced, parse::Parse, punctuated::Punctuated, spanned::Spanned, Attribute, Error, Fields,
-    Ident, Token, Type,
+    braced, parse::Parse, punctuated::Punctuated, spanned::Spanned, Attribute, Error, ExprLit,
+    Fields, Ident, LitStr, Token, Type,
 };
 
 pub fn parse_packet_description(
@@ -445,7 +447,10 @@ mod kw {
     syn::custom_keyword!(is_valid);
     syn::custom_keyword!(get_as_ref);
     syn::custom_keyword!(into);
+    // flattens field
     syn::custom_keyword!(flatten);
+    // bubbles up getters to add for flattened field
+    syn::custom_keyword!(flat_fields);
 }
 
 #[derive(Default)]
@@ -456,6 +461,7 @@ pub struct PackFieldMap {
     pub convert_may_fail: bool,
     pub get_as_ref: bool,
     pub flatten: bool,
+    pub flatten_fields: Option<Vec<String>>,
 }
 
 impl PackFieldMap {
@@ -478,7 +484,6 @@ impl Parse for PackFieldMap {
         let mut custom_from_fn: Option<syn::Path> = None;
         let mut custom_into_fn: Option<syn::Expr> = None;
         let mut custom_is_valid_fn: Option<syn::Path> = None;
-
         while !input.is_empty() {
             let lookahead = input.lookahead1();
 
@@ -515,6 +520,27 @@ impl Parse for PackFieldMap {
             } else if lookahead.peek(kw::flatten) {
                 input.parse::<kw::flatten>()?;
                 map.flatten = true;
+            } else if lookahead.peek(kw::flat_fields) {
+                input.parse::<kw::flat_fields>()?;
+                input.parse::<Token![=]>()?;
+                let parsed = Punctuated::<syn::Expr, Token![,]>::parse_terminated(input)?;
+                let mut field_names: Vec<String> = vec![];
+                for expr in parsed {
+                    if let syn::Expr::Array(arr) = expr {
+                        for attr in arr.elems {
+                            if let syn::Expr::Lit(expr) = attr {
+                                if let Str(lit) = expr.lit {
+                                    field_names.push(lit.value());
+                                }
+                            }
+                        }
+                    }
+                }
+                if !field_names.is_empty() {
+                    map.flatten_fields = Some(field_names);
+                }
+                // input.parse_terminated::<Type::Array, syn::parse::ParseStream>(Type::parse);
+                // custom_flat_fields_stream = Some(input.parse()?);
             } else {
                 return Err(lookahead.error());
             }
