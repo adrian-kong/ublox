@@ -1,24 +1,24 @@
-use super::{
-    ubx_checksum, MemWriter, Position, UbxChecksumCalc, UbxPacketCreator, UbxPacketMeta,
-    UbxUnknownPacketRef, SYNC_CHAR_1, SYNC_CHAR_2,
-};
-use crate::error::{MemWriterError, ParserError};
+use core::convert::TryInto;
+use core::fmt;
+use core::fmt::Debug;
+
 use bitflags::bitflags;
 use chrono::prelude::*;
-
-use core::fmt;
-use core::fmt::{Debug};
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::float::FloatCore;
-use serde::ser::{SerializeMap, SerializeSeq};
-use serde::Serializer;
+use serde::ser::SerializeMap;
 
-use crate::ubx_packets::packets::mon_ver::is_cstr_valid;
-use num_traits::real::Real;
-use std::convert::TryInto;
 use ublox_derive::{
     define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_iter, ubx_packet_recv,
     ubx_packet_recv_send, ubx_packet_send,
+};
+
+use crate::error::{MemWriterError, ParserError};
+use crate::ubx_packets::packets::mon_ver::is_cstr_valid;
+
+use super::{
+    ubx_checksum, MemWriter, Position, UbxChecksumCalc, UbxPacketCreator, UbxPacketMeta,
+    UbxUnknownPacketRef, SYNC_CHAR_1, SYNC_CHAR_2,
 };
 
 /// Geodetic Position Solution

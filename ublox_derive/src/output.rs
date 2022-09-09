@@ -5,9 +5,7 @@ use crate::types::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use std::slice::SliceIndex;
 use std::{collections::HashSet, convert::TryFrom};
-use syn::spanned::Spanned;
 use syn::{parse_quote, Ident, Type};
 
 fn generate_debug_impl(pack_name: &str, ref_name: &Ident, pack_descr: &PackDesc) -> TokenStream {
