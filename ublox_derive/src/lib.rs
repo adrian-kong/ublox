@@ -9,7 +9,7 @@ mod types;
 use crate::output::generate_iter_output;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use std::any::Any;
+
 use syn::{
     parse_macro_input, punctuated::Punctuated, spanned::Spanned, Attribute, Data, DeriveInput,
     Fields, Ident, Variant,
@@ -21,7 +21,7 @@ pub fn ubx_iter(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let ret = if let Data::Struct(data) = &input.data {
+    let ret = if let Data::Struct(_data) = &input.data {
         generate_code_for_iterators(input.to_token_stream(), input.ident)
     } else {
         Err(syn::Error::new(
@@ -193,7 +193,7 @@ fn extend_bitflags(mac: syn::ItemMacro) -> syn::Result<TokenStream> {
                 .unwrap_or_else(|| mac.span()),
             format!(
                 "Expect bitflags invocation here, instead got '{}'",
-                mac.mac.path.into_token_stream().to_string()
+                mac.mac.path.into_token_stream()
             ),
         ));
     }

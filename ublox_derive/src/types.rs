@@ -165,18 +165,18 @@ pub struct UbxExtendEnum {
     pub attrs: Vec<syn::Attribute>,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum UbxTypeFromFn {
     From,
     FromUnchecked,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum UbxTypeIntoFn {
     Raw,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UbxEnumRestHandling {
     Reserved,
     ErrorProne,
@@ -200,7 +200,7 @@ pub struct BitFlagsMacroItem {
     pub value: u64,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum PacketFlag {
     DefaultForBuilder,
 }

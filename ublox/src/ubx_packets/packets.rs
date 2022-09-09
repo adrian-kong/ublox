@@ -5,9 +5,9 @@ use super::{
 use crate::error::{MemWriterError, ParserError};
 use bitflags::bitflags;
 use chrono::prelude::*;
-use core::borrow::BorrowMut;
+
 use core::fmt;
-use core::fmt::{Debug, Formatter};
+use core::fmt::{Debug};
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::float::FloatCore;
 use serde::ser::{SerializeMap, SerializeSeq};
@@ -326,7 +326,7 @@ struct NavSolution {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum GpsFix {
     NoFix = 0,
     DeadReckoningOnly = 1,
@@ -1542,7 +1542,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5DynModel {
     Portable = 0,
     Stationary = 2,
@@ -1568,7 +1568,7 @@ impl Default for CfgNav5DynModel {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5FixMode {
     Only2D = 1,
     Only3D = 2,
@@ -1585,7 +1585,7 @@ impl Default for CfgNav5FixMode {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5UtcStandard {
     /// receiver selects based on GNSS configuration (see GNSS timebases)
     Automatic = 0,
@@ -1796,7 +1796,7 @@ struct MgaAck {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum MsgAckInfoCode {
     Accepted = 0,
     RejectedNoTime = 1,
@@ -1835,7 +1835,7 @@ struct MonHw {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum AntennaStatus {
     Init = 0,
     DontKnow = 1,
@@ -1847,7 +1847,7 @@ pub enum AntennaStatus {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
 pub enum AntennaPower {
     Off = 0,
     On = 1,
@@ -1866,7 +1866,7 @@ impl<'a> MonVerExtensionIter<'a> {
     }
 
     fn is_valid(payload: &[u8]) -> bool {
-        payload.len() % 30 == 0 && payload.chunks(30).find(|&c| !is_cstr_valid(c)).is_some()
+        payload.len() % 30 == 0 && payload.chunks(30).any(|c| !is_cstr_valid(c))
     }
 }
 
@@ -1903,7 +1903,7 @@ struct MonVer {
 }
 
 mod mon_ver {
-    use super::MonVerExtensionIter;
+    
 
     pub(crate) fn convert_to_str_unchecked(bytes: &[u8]) -> &str {
         let null_pos = bytes

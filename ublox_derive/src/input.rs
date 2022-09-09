@@ -5,12 +5,12 @@ use crate::types::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
-use std::convert::TryFrom;
+
 use std::num::NonZeroUsize;
 use syn::Lit::Str;
 use syn::{
-    braced, parse::Parse, punctuated::Punctuated, spanned::Spanned, Attribute, Error, ExprLit,
-    Fields, Ident, LitStr, Token, Type,
+    braced, parse::Parse, punctuated::Punctuated, spanned::Spanned, Attribute, Error,
+    Fields, Ident, Token, Type,
 };
 
 pub fn parse_packet_description(
