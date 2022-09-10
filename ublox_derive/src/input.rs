@@ -561,19 +561,18 @@ impl Parse for Comment {
 }
 
 fn field_size_bytes(ty: &Type) -> syn::Result<Option<NonZeroUsize>> {
-    let valid_types: [(Type, Option<NonZeroUsize>); 9] = [
-        (syn::parse_quote!(u8), NonZeroUsize::new(1)),
-        (syn::parse_quote!(i8), NonZeroUsize::new(1)),
-        (syn::parse_quote!(u16), NonZeroUsize::new(2)),
-        (syn::parse_quote!(i16), NonZeroUsize::new(2)),
-        (syn::parse_quote!(Option<u32>), None),
-        (syn::parse_quote!(u32), NonZeroUsize::new(4)),
-        (syn::parse_quote!(i32), NonZeroUsize::new(4)),
-        (syn::parse_quote!(f32), NonZeroUsize::new(4)),
-        (syn::parse_quote!(f64), NonZeroUsize::new(8)),
+    let valid_types: [(Type, NonZeroUsize); 8] = [
+        (syn::parse_quote!(u8), NonZeroUsize::new(1).unwrap()),
+        (syn::parse_quote!(i8), NonZeroUsize::new(1).unwrap()),
+        (syn::parse_quote!(u16), NonZeroUsize::new(2).unwrap()),
+        (syn::parse_quote!(i16), NonZeroUsize::new(2).unwrap()),
+        (syn::parse_quote!(u32), NonZeroUsize::new(4).unwrap()),
+        (syn::parse_quote!(i32), NonZeroUsize::new(4).unwrap()),
+        (syn::parse_quote!(f32), NonZeroUsize::new(4).unwrap()),
+        (syn::parse_quote!(f64), NonZeroUsize::new(8).unwrap()),
     ];
     if let Some((_ty, size)) = valid_types.iter().find(|x| x.0 == *ty) {
-        Ok(*size)
+        Ok(Some(*size))
     } else if let syn::Type::Array(ref fixed_array) = ty {
         if *fixed_array.elem != syn::parse_quote!(u8) {
             return Err(Error::new(fixed_array.elem.span(), "Only u8 supported"));
