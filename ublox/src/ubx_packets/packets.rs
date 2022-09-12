@@ -326,7 +326,7 @@ struct NavSolution {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum GpsFix {
     NoFix = 0,
     DeadReckoningOnly = 1,
@@ -402,7 +402,7 @@ pub enum MapMatchingStatus {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 enum NavStatusFlags2 {
     Acquisition = 0,
     Tracking = 1,
@@ -695,7 +695,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Clone, serde::Serialize, Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum OdoProfile {
     Running = 0,
     Cycling = 1,
@@ -1070,7 +1070,7 @@ struct CfgPrtI2c {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum I2cPortId {
     I2c = 0,
 }
@@ -1104,7 +1104,7 @@ struct CfgPrtUart {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum UartPortId {
     Uart1 = 1,
     Uart2 = 2,
@@ -1306,7 +1306,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum SpiPortId {
     Spi = 4,
 }
@@ -1546,7 +1546,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5DynModel {
     Portable = 0,
     Stationary = 2,
@@ -1572,7 +1572,7 @@ impl Default for CfgNav5DynModel {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5FixMode {
     Only2D = 1,
     Only3D = 2,
@@ -1589,7 +1589,7 @@ impl Default for CfgNav5FixMode {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5UtcStandard {
     /// receiver selects based on GNSS configuration (see GNSS timebases)
     Automatic = 0,
@@ -1616,10 +1616,10 @@ struct ScaleBack<T: FloatCore + FromPrimitive + ToPrimitive>(T);
 impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_i32(self, x: T) -> i32 {
         let x = (x * self.0).round();
-        if x < T::from_i32(i32::min_value()).unwrap() {
-            i32::min_value()
-        } else if x > T::from_i32(i32::max_value()).unwrap() {
-            i32::max_value()
+        if x < T::from_i32(i32::MIN).unwrap() {
+            i32::MIN
+        } else if x > T::from_i32(i32::MAX).unwrap() {
+            i32::MAX
         } else {
             x.to_i32().unwrap()
         }
@@ -1628,10 +1628,10 @@ impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_u32(self, x: T) -> u32 {
         let x = (x * self.0).round();
         if !x.is_sign_negative() {
-            if x <= T::from_u32(u32::max_value()).unwrap() {
+            if x <= T::from_u32(u32::MAX).unwrap() {
                 x.to_u32().unwrap()
             } else {
-                u32::max_value()
+                u32::MAX
             }
         } else {
             0
@@ -1641,10 +1641,10 @@ impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_u16(self, x: T) -> u16 {
         let x = (x * self.0).round();
         if !x.is_sign_negative() {
-            if x <= T::from_u16(u16::max_value()).unwrap() {
+            if x <= T::from_u16(u16::MAX).unwrap() {
                 x.to_u16().unwrap()
             } else {
-                u16::max_value()
+                u16::MAX
             }
         } else {
             0
@@ -1654,10 +1654,10 @@ impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_u8(self, x: T) -> u8 {
         let x = (x * self.0).round();
         if !x.is_sign_negative() {
-            if x <= T::from_u8(u8::max_value()).unwrap() {
+            if x <= T::from_u8(u8::MAX).unwrap() {
                 x.to_u8().unwrap()
             } else {
-                u8::max_value()
+                u8::MAX
             }
         } else {
             0
@@ -1800,7 +1800,7 @@ struct MgaAck {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MsgAckInfoCode {
     Accepted = 0,
     RejectedNoTime = 1,
@@ -1839,7 +1839,7 @@ struct MonHw {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AntennaStatus {
     Init = 0,
     DontKnow = 1,
@@ -1851,7 +1851,7 @@ pub enum AntennaStatus {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AntennaPower {
     Off = 0,
     On = 1,
@@ -2342,7 +2342,7 @@ bitflags! {
 
 #[ubx_packet_recv]
 #[ubx(class = 0x02, id = 0x15, fixed_payload_len = 32)]
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug)]
 pub struct RxmRawxInfo {
     pr_mes: f64,
     cp_mes: f64,
