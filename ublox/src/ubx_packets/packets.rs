@@ -2013,7 +2013,7 @@ impl<'a> core::iter::Iterator for EsfMeasDataIter<'a> {
 #[ubx_packet_recv]
 #[ubx(class = 0x10, id = 0x03, max_payload_len = 1240)]
 struct EsfRaw {
-    reserved1: u32,
+    msss: u32,
     #[ubx(
         map_type = EsfRawDataIter,
         from = EsfRawDataIter::new,
