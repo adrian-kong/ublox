@@ -1,24 +1,24 @@
+use core::convert::TryInto;
+use core::fmt;
+use core::fmt::Debug;
+
+use bitflags::bitflags;
+use chrono::prelude::*;
+use num_traits::cast::{FromPrimitive, ToPrimitive};
+use num_traits::float::FloatCore;
+use serde::ser::SerializeMap;
+
+use ublox_derive::{
+    define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_packet_recv, ubx_packet_recv_send,
+    ubx_packet_send,
+};
+
+use crate::error::{MemWriterError, ParserError};
+use crate::ubx_packets::packets::mon_ver::is_cstr_valid;
+
 use super::{
     ubx_checksum, MemWriter, Position, UbxChecksumCalc, UbxPacketCreator, UbxPacketMeta,
     UbxUnknownPacketRef, SYNC_CHAR_1, SYNC_CHAR_2,
-};
-use crate::error::{MemWriterError, ParserError};
-use bitflags::bitflags;
-use chrono::prelude::*;
-use core::borrow::BorrowMut;
-use core::fmt;
-use core::fmt::{Debug, Formatter};
-use num_traits::cast::{FromPrimitive, ToPrimitive};
-use num_traits::float::FloatCore;
-use serde::ser::{SerializeMap, SerializeSeq};
-use serde::Serializer;
-
-use crate::ubx_packets::packets::mon_ver::is_cstr_valid;
-use num_traits::real::Real;
-use std::convert::TryInto;
-use ublox_derive::{
-    define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_iter, ubx_packet_recv,
-    ubx_packet_recv_send, ubx_packet_send,
 };
 
 /// Geodetic Position Solution
@@ -326,7 +326,7 @@ struct NavSolution {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum GpsFix {
     NoFix = 0,
     DeadReckoningOnly = 1,
@@ -402,7 +402,7 @@ pub enum MapMatchingStatus {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 enum NavStatusFlags2 {
     Acquisition = 0,
     Tracking = 1,
@@ -580,7 +580,7 @@ struct NavSatSvInfo {
     flags: u32,
 }
 
-#[ubx_iter]
+#[derive(Debug, Clone)]
 pub struct NavSatIter<'a> {
     data: &'a [u8],
     offset: usize,
@@ -623,9 +623,13 @@ struct NavSat {
 
     reserved: [u8; 2],
 
-    #[ubx(map_type = NavSatIter, may_fail,
+    #[ubx(
+        map_type = NavSatIter,
+        from = NavSatIter::new,
         is_valid = NavSatIter::is_valid,
-        from = NavSatIter::new, get_as_ref)]
+        may_fail,
+        get_as_ref,
+    )]
     svs: [u8; 0],
 }
 
@@ -691,7 +695,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Clone, serde::Serialize, Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum OdoProfile {
     Running = 0,
     Cycling = 1,
@@ -1066,7 +1070,7 @@ struct CfgPrtI2c {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum I2cPortId {
     I2c = 0,
 }
@@ -1100,7 +1104,7 @@ struct CfgPrtUart {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum UartPortId {
     Uart1 = 1,
     Uart2 = 2,
@@ -1302,7 +1306,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum SpiPortId {
     Spi = 4,
 }
@@ -1542,7 +1546,7 @@ bitflags! {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5DynModel {
     Portable = 0,
     Stationary = 2,
@@ -1568,7 +1572,7 @@ impl Default for CfgNav5DynModel {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5FixMode {
     Only2D = 1,
     Only3D = 2,
@@ -1585,7 +1589,7 @@ impl Default for CfgNav5FixMode {
 #[ubx_extend]
 #[ubx(from_unchecked, into_raw, rest_error)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CfgNav5UtcStandard {
     /// receiver selects based on GNSS configuration (see GNSS timebases)
     Automatic = 0,
@@ -1612,10 +1616,10 @@ struct ScaleBack<T: FloatCore + FromPrimitive + ToPrimitive>(T);
 impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_i32(self, x: T) -> i32 {
         let x = (x * self.0).round();
-        if x < T::from_i32(i32::min_value()).unwrap() {
-            i32::min_value()
-        } else if x > T::from_i32(i32::max_value()).unwrap() {
-            i32::max_value()
+        if x < T::from_i32(i32::MIN).unwrap() {
+            i32::MIN
+        } else if x > T::from_i32(i32::MAX).unwrap() {
+            i32::MAX
         } else {
             x.to_i32().unwrap()
         }
@@ -1624,10 +1628,10 @@ impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_u32(self, x: T) -> u32 {
         let x = (x * self.0).round();
         if !x.is_sign_negative() {
-            if x <= T::from_u32(u32::max_value()).unwrap() {
+            if x <= T::from_u32(u32::MAX).unwrap() {
                 x.to_u32().unwrap()
             } else {
-                u32::max_value()
+                u32::MAX
             }
         } else {
             0
@@ -1637,10 +1641,10 @@ impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_u16(self, x: T) -> u16 {
         let x = (x * self.0).round();
         if !x.is_sign_negative() {
-            if x <= T::from_u16(u16::max_value()).unwrap() {
+            if x <= T::from_u16(u16::MAX).unwrap() {
                 x.to_u16().unwrap()
             } else {
-                u16::max_value()
+                u16::MAX
             }
         } else {
             0
@@ -1650,10 +1654,10 @@ impl<T: FloatCore + FromPrimitive + ToPrimitive> ScaleBack<T> {
     fn as_u8(self, x: T) -> u8 {
         let x = (x * self.0).round();
         if !x.is_sign_negative() {
-            if x <= T::from_u8(u8::max_value()).unwrap() {
+            if x <= T::from_u8(u8::MAX).unwrap() {
                 x.to_u8().unwrap()
             } else {
-                u8::max_value()
+                u8::MAX
             }
         } else {
             0
@@ -1796,7 +1800,7 @@ struct MgaAck {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MsgAckInfoCode {
     Accepted = 0,
     RejectedNoTime = 1,
@@ -1835,7 +1839,7 @@ struct MonHw {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AntennaStatus {
     Init = 0,
     DontKnow = 1,
@@ -1847,14 +1851,14 @@ pub enum AntennaStatus {
 #[ubx_extend]
 #[ubx(from, rest_reserved)]
 #[repr(u8)]
-#[derive(Debug, serde::Serialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AntennaPower {
     Off = 0,
     On = 1,
     DontKnow = 2,
 }
 
-#[ubx_iter]
+#[derive(Debug, Clone)]
 pub struct MonVerExtensionIter<'a> {
     data: &'a [u8],
     offset: usize,
@@ -1866,7 +1870,7 @@ impl<'a> MonVerExtensionIter<'a> {
     }
 
     fn is_valid(payload: &[u8]) -> bool {
-        payload.len() % 30 == 0 && payload.chunks(30).find(|&c| !is_cstr_valid(c)).is_some()
+        payload.len() % 30 == 0 && payload.chunks(30).any(|c| !is_cstr_valid(c))
     }
 }
 
@@ -1903,8 +1907,6 @@ struct MonVer {
 }
 
 mod mon_ver {
-    use super::MonVerExtensionIter;
-
     pub(crate) fn convert_to_str_unchecked(bytes: &[u8]) -> &str {
         let null_pos = bytes
             .iter()
@@ -1939,30 +1941,56 @@ struct RxmRtcm {
 #[ubx(class = 0x10, id = 0x02, max_payload_len = 1240)]
 struct EsfMeas {
     time_tag: u32,
+    flags: u16,
+    id: u16,
     #[ubx(
-        map_type = EsfMeasInfo,
-        from = EsfMeasInfo::new,
-        flatten,
-        flat_fields = ["flags", "u16", "id", "u16", "data", "U32Iter"]
+        map_type = EsfMeasDataIter,
+        from = EsfMeasDataIter::new,
+        size_fn = data_len,
+        is_valid = EsfMeasDataIter::is_valid,
+        may_fail,
     )]
-    //, "calib_tag", "Option<u32>"
-    info: [u8; 0],
+    data: [u8; 0],
+    #[ubx(
+        map_type = Option<u32>,
+        from = EsfMeas::calib_tag,
+        size_fn = calib_tag_len,
+    )]
+    calib_tag: [u8; 0],
 }
 
-#[derive(serde::Serialize, Debug)]
-pub struct EsfMeasInfo<'a> {
-    pub flags: u16,
-    pub id: u16,
-    pub data: U32Iter<'a>,
-    pub calib_tag: Option<u32>,
+impl EsfMeas {
+    fn calib_tag(bytes: &[u8]) -> Option<u32> {
+        bytes.try_into().ok().map(u32::from_le_bytes)
+    }
 }
 
-#[ubx_iter]
-pub struct U32Iter<'a>(core::slice::ChunksExact<'a, u8>);
+impl<'a> EsfMeasRef<'a> {
+    fn data_len(&self) -> usize {
+        ((self.flags() >> 11 & 0x1f) as usize) * 4
+    }
 
-impl<'a> U32Iter<'a> {
+    fn calib_tag_len(&self) -> usize {
+        if self.flags() & 0x8 != 0 {
+            4
+        } else {
+            0
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct EsfMeasData {
+    pub data_type: u8,
+    pub data_field: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct EsfMeasDataIter<'a>(core::slice::ChunksExact<'a, u8>);
+
+impl<'a> EsfMeasDataIter<'a> {
     fn new(bytes: &'a [u8]) -> Self {
-        U32Iter(bytes.chunks_exact(4))
+        Self(bytes.chunks_exact(4))
     }
 
     fn is_valid(bytes: &'a [u8]) -> bool {
@@ -1970,56 +1998,44 @@ impl<'a> U32Iter<'a> {
     }
 }
 
-impl<'a> core::iter::Iterator for U32Iter<'a> {
-    type Item = u32;
+impl<'a> core::iter::Iterator for EsfMeasDataIter<'a> {
+    type Item = EsfMeasData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0
-            .next()
-            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
-    }
-}
-
-impl<'a> EsfMeasInfo<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        let flags = u16::from_le_bytes(bytes[0..2].try_into().unwrap());
-        let id = u16::from_le_bytes(bytes[2..4].try_into().unwrap());
-        let num_meas = usize::from(flags >> 11 & 0x1F);
-        let data = U32Iter::new(&bytes[4..num_meas * 4]);
-        let calib_tag = if flags & 0x8 != 0 {
-            let slice = bytes[num_meas * 4 + 4..num_meas * 4 + 8]
-                .try_into()
-                .unwrap();
-            Some(u32::from_le_bytes(slice))
-        } else {
-            None
-        };
-
-        Self {
-            flags,
-            id,
-            data,
-            calib_tag,
-        }
+        let data = self.0.next()?.try_into().map(u32::from_le_bytes).unwrap();
+        Some(EsfMeasData {
+            data_type: ((data & 0x3F000000) >> 24).try_into().unwrap(),
+            data_field: data & 0xFFFFFF,
+        })
     }
 }
 
 #[ubx_packet_recv]
 #[ubx(class = 0x10, id = 0x03, max_payload_len = 1240)]
 struct EsfRaw {
-    msss: u32,
-    #[ubx(map_type = EsfRawIter,
-    from = EsfRawIter::new,
-    is_valid = EsfRawIter::is_valid)]
-    iter: [u8; 0],
+    reserved1: u32,
+    #[ubx(
+        map_type = EsfRawDataIter,
+        from = EsfRawDataIter::new,
+        is_valid = EsfRawDataIter::is_valid,
+        may_fail,
+    )]
+    data: [u8; 0],
 }
 
-#[ubx_iter]
-pub struct EsfRawIter<'a>(core::slice::ChunksExact<'a, u8>);
+#[derive(Debug, serde::Serialize)]
+pub struct EsfRawData {
+    pub data_type: u8,
+    pub data_field: u32,
+    pub sensor_time_tag: u32,
+}
 
-impl<'a> EsfRawIter<'a> {
+#[derive(Debug, Clone)]
+pub struct EsfRawDataIter<'a>(core::slice::ChunksExact<'a, u8>);
+
+impl<'a> EsfRawDataIter<'a> {
     fn new(bytes: &'a [u8]) -> Self {
-        Self(bytes.chunks_exact(4))
+        Self(bytes.chunks_exact(8))
     }
 
     fn is_valid(bytes: &'a [u8]) -> bool {
@@ -2027,21 +2043,19 @@ impl<'a> EsfRawIter<'a> {
     }
 }
 
-impl<'a> core::iter::Iterator for EsfRawIter<'a> {
-    type Item = EsfRawInfo;
+impl<'a> core::iter::Iterator for EsfRawDataIter<'a> {
+    type Item = EsfRawData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(EsfRawInfo {
-            data: u32::from_le_bytes(self.0.next()?.try_into().unwrap()),
-            sensor_time_tag: u32::from_le_bytes(self.0.next()?.try_into().unwrap()),
+        let chunk = self.0.next()?;
+        let data = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
+        let sensor_time_tag = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
+        Some(EsfRawData {
+            data_type: ((data >> 24) & 0xFF).try_into().unwrap(),
+            data_field: data & 0xFFFFFF,
+            sensor_time_tag,
         })
     }
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct EsfRawInfo {
-    data: u32,
-    sensor_time_tag: u32,
 }
 
 #[ubx_packet_recv]
@@ -2199,9 +2213,36 @@ struct RxmSfrbx {
     reserved2: u8,
     version: u8,
     reserved3: u8,
-
-    #[ubx(map_type = U32Iter, from = U32Iter::new, is_valid = U32Iter::is_valid)]
+    #[ubx(
+        map_type = DwrdIter,
+        from = DwrdIter::new,
+        is_valid = DwrdIter::is_valid,
+        may_fail,
+    )]
     dwrd: [u8; 0],
+}
+
+#[derive(Debug, Clone)]
+pub struct DwrdIter<'a>(core::slice::ChunksExact<'a, u8>);
+
+impl<'a> DwrdIter<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        DwrdIter(bytes.chunks_exact(4))
+    }
+
+    fn is_valid(bytes: &'a [u8]) -> bool {
+        bytes.len() % 4 == 0
+    }
+}
+
+impl<'a> core::iter::Iterator for DwrdIter<'a> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .next()
+            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+    }
 }
 
 #[ubx_packet_recv]
@@ -2281,9 +2322,12 @@ struct RxmRawx {
     #[ubx(map_type = RecStatFlags)]
     rec_stat: u8,
     reserved1: [u8; 3],
-    #[ubx(map_type = RxmRawxInfoIter,
-    from = RxmRawxInfoIter::new,
-    is_valid = RxmRawxInfoIter::is_valid)]
+    #[ubx(
+        map_type = RxmRawxInfoIter,
+        from = RxmRawxInfoIter::new,
+        may_fail,
+        is_valid = RxmRawxInfoIter::is_valid,
+    )]
     iter: [u8; 0],
 }
 
@@ -2298,7 +2342,7 @@ bitflags! {
 
 #[ubx_packet_recv]
 #[ubx(class = 0x02, id = 0x15, fixed_payload_len = 32)]
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug)]
 pub struct RxmRawxInfo {
     pr_mes: f64,
     cp_mes: f64,
@@ -2342,7 +2386,7 @@ bitflags! {
     }
 }
 
-#[ubx_iter]
+#[derive(Debug, Clone)]
 pub struct RxmRawxInfoIter<'a>(core::slice::ChunksExact<'a, u8>);
 
 impl<'a> RxmRawxInfoIter<'a> {

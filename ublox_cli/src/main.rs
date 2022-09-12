@@ -1,6 +1,6 @@
 use std::io;
 use std::io::Read;
-use ublox::PacketRef::NavStatus;
+
 use ublox::*;
 
 fn main() {

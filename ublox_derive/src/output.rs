@@ -5,21 +5,17 @@ use crate::types::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use std::slice::SliceIndex;
 use std::{collections::HashSet, convert::TryFrom};
-use syn::spanned::Spanned;
-use syn::{parse_macro_input, parse_quote, Ident, Type};
+use syn::{parse_quote, Ident, Type};
 
 fn generate_debug_impl(pack_name: &str, ref_name: &Ident, pack_descr: &PackDesc) -> TokenStream {
-    let mut fields = vec![];
-    for field in pack_descr.fields.iter() {
+    let fields = pack_descr.fields.iter().map(|field| {
         let field_name = &field.name;
         let field_accessor = field.intermediate_field_name();
-        fields.push(quote! {
+        quote! {
             .field(stringify!(#field_name), &self.#field_accessor())
-        });
-    }
-
+        }
+    });
     quote! {
         impl core::fmt::Debug for #ref_name<'_> {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -36,22 +32,22 @@ fn generate_serialize_impl(
     ref_name: &Ident,
     pack_descr: &PackDesc,
 ) -> TokenStream {
-    let mut fields = vec![];
-    for field in pack_descr.fields.iter() {
+    let fields = pack_descr.fields.iter().map(|field| {
         let field_name = &field.name;
         let field_accessor = field.intermediate_field_name();
-        let token = if field.map.flatten {
-            quote! {
-                serde::ser::Serialize::serialize(&self.#field_accessor(), serde::__private::ser::FlatMapSerializer(&mut state))?;
-            }
-        } else {
+        if field.size_bytes.is_some() || field.is_optional() {
             quote! {
                 state.serialize_entry(stringify!(#field_name), &self.#field_accessor())?;
             }
-        };
-        fields.push(token);
-    }
-
+        } else {
+            quote! {
+                state.serialize_entry(
+                    stringify!(#field_name),
+                    &crate::ubx_packets::FieldIter(self.#field_accessor())
+                )?;
+            }
+        }
+    });
     quote! {
         impl serde::Serialize for #ref_name<'_> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -72,6 +68,7 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
 
     let mut getters = Vec::with_capacity(pack_descr.fields.len());
     let mut field_validators = Vec::new();
+    let mut size_fns = Vec::new();
 
     let mut off = 0usize;
     for (field_index, f) in pack_descr.fields.iter().enumerate() {
@@ -133,9 +130,22 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
             });
             off += size_bytes;
         } else {
-            assert_eq!(field_index, pack_descr.fields.len() - 1);
-            let mut get_value_lines = vec![quote! { &self.0[#off..] }];
+            assert!(field_index == pack_descr.fields.len() - 1 || f.size_fn().is_some());
 
+            let range = if let Some(size_fn) = f.size_fn() {
+                let range = quote! {
+                    {
+                        let offset = #off #(+ self.#size_fns())*;
+                        offset..offset+self.#size_fn()
+                    }
+                };
+                size_fns.push(size_fn);
+                range
+            } else {
+                quote! { #off.. }
+            };
+
+            let mut get_value_lines = vec![quote! { &self.0[#range] }];
             if let Some(ref out_ty) = f.map.map_type {
                 let get_raw = &get_value_lines[0];
                 let new_line = quote! { let val = #get_raw ;  };
@@ -170,24 +180,6 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
                     #(#get_value_lines)*
                 }
             });
-            if f.map.flatten {
-                if let Some(ref field) = f.map.flatten_fields {
-                    for i in (0..field.len()).step_by(2) {
-                        if let (Some(f_name), Some(f_type)) = (field.get(i), field.get(i + 1)) {
-                            let field_name = format_ident!("{f_name}");
-                            let field_type = format_ident!("{f_type}");
-                            getters.push(quote! {
-                                #[doc = #field_comment]
-                                #[inline]
-                                pub fn #field_name(&self) -> #field_type {
-                                    let info = self.#get_name();
-                                    info.#field_name
-                                }
-                            });
-                        }
-                    }
-                }
-            }
         }
     }
     let struct_comment = &pack_descr.comment;
@@ -205,14 +197,37 @@ pub fn generate_recv_code_for_packet(pack_descr: &PackDesc) -> TokenStream {
             }
         }
     } else {
-        let min_size = pack_descr
-            .packet_payload_size_except_last_field()
-            .expect("except last all fields should have fixed size");
+        let size_fns: Vec<_> = pack_descr
+            .fields
+            .iter()
+            .filter_map(|f| f.size_fn())
+            .collect();
+
+        let min_size = if size_fns.is_empty() {
+            let size = pack_descr
+                .packet_payload_size_except_last_field()
+                .expect("except last all fields should have fixed size");
+            quote! {
+                #size;
+            }
+        } else {
+            let size = pack_descr
+                .packet_payload_size_except_size_fn()
+                .unwrap_or_default();
+            quote! {
+                {
+                    if got < #size {
+                        return Err(ParserError::InvalidPacketLen{ packet: #pack_name, expect: #size, got });
+                    }
+                    #size #(+ #ref_name(payload).#size_fns())*
+                }
+            }
+        };
 
         quote! {
             fn validate(payload: &[u8]) -> Result<(), ParserError> {
-                let min = #min_size;
                 let got = payload.len();
+                let min = #min_size;
                 if got >= min {
                     #(#field_validators)*
                     Ok(())
@@ -487,30 +502,17 @@ pub fn generate_code_to_extend_enum(ubx_enum: &UbxExtendEnum) -> TokenStream {
 
         #from_code
         #to_code
-    };
-    code
-}
 
-pub fn generate_iter_output(input: TokenStream, name: Ident) -> syn::Result<TokenStream> {
-    Ok(quote! {
-        #[derive(Clone)]
-        #input
-
-        impl core::fmt::Debug for #name<'_> {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.debug_struct(stringify!(#name)).finish()
-            }
-        }
-
-        impl serde::Serialize for #name<'_> {
+        impl serde::Serialize for #name {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: serde::Serializer,
             {
-                serializer.collect_seq(self.clone())
+                serializer.serialize_u8(*self as u8)
             }
         }
-    })
+    };
+    code
 }
 
 pub fn generate_code_to_extend_bitflags(bitflags: BitFlagsMacro) -> syn::Result<TokenStream> {

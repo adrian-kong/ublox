@@ -20,6 +20,10 @@ impl PackDesc {
         PackDesc::fields_size(self.fields.iter().rev().skip(1))
     }
 
+    pub fn packet_payload_size_except_size_fn(&self) -> Option<usize> {
+        PackDesc::fields_size(self.fields.iter().filter(|f| f.size_fn().is_none()))
+    }
+
     fn fields_size<'a, I: Iterator<Item = &'a PackField>>(iter: I) -> Option<usize> {
         let mut ret: usize = 0;
         for f in iter {
@@ -63,14 +67,25 @@ pub struct PackField {
     pub size_bytes: Option<NonZeroUsize>,
 }
 
+impl PackField {
+    pub fn size_fn(&self) -> Option<&TokenStream> {
+        self.map.map_type.as_ref().and_then(|m| m.size_fn.as_ref())
+    }
+
+    pub fn is_optional(&self) -> bool {
+        self.map
+            .map_type
+            .as_ref()
+            .map_or(false, |m| crate::type_is_option(&m.ty))
+    }
+}
+
 pub struct PackFieldMapDesc {
     pub map_type: Option<MapTypeDesc>,
     pub scale: Option<syn::LitFloat>,
     pub alias: Option<Ident>,
     pub convert_may_fail: bool,
     pub get_as_ref: bool,
-    pub flatten: bool,
-    pub flatten_fields: Option<Vec<String>>,
 }
 
 pub struct MapTypeDesc {
@@ -78,6 +93,7 @@ pub struct MapTypeDesc {
     pub from_fn: TokenStream,
     pub is_valid_fn: TokenStream,
     pub into_fn: TokenStream,
+    pub size_fn: Option<TokenStream>,
 }
 
 impl PackFieldMapDesc {
@@ -118,6 +134,7 @@ impl PackFieldMapDesc {
                 from_fn,
                 is_valid_fn,
                 into_fn,
+                size_fn: map_type.size_fn,
             }
         });
         Self {
@@ -126,8 +143,6 @@ impl PackFieldMapDesc {
             alias: x.alias,
             convert_may_fail: x.convert_may_fail,
             get_as_ref: x.get_as_ref,
-            flatten: x.flatten,
-            flatten_fields: x.flatten_fields,
         }
     }
 }
@@ -165,18 +180,18 @@ pub struct UbxExtendEnum {
     pub attrs: Vec<syn::Attribute>,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum UbxTypeFromFn {
     From,
     FromUnchecked,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum UbxTypeIntoFn {
     Raw,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UbxEnumRestHandling {
     Reserved,
     ErrorProne,
@@ -200,7 +215,7 @@ pub struct BitFlagsMacroItem {
     pub value: u64,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum PacketFlag {
     DefaultForBuilder,
 }

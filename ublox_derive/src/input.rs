@@ -5,12 +5,11 @@ use crate::types::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
-use std::convert::TryFrom;
+
 use std::num::NonZeroUsize;
-use syn::Lit::Str;
 use syn::{
-    braced, parse::Parse, punctuated::Punctuated, spanned::Spanned, Attribute, Error, ExprLit,
-    Fields, Ident, LitStr, Token, Type,
+    braced, parse::Parse, punctuated::Punctuated, spanned::Spanned, Attribute, Error, Fields,
+    Ident, Token, Type,
 };
 
 pub fn parse_packet_description(
@@ -26,7 +25,12 @@ pub fn parse_packet_description(
     let name = struct_name.to_string();
     let fields = parse_fields(fields)?;
 
-    if let Some(field) = fields.iter().rev().skip(1).find(|x| x.size_bytes.is_none()) {
+    if let Some(field) = fields
+        .iter()
+        .rev()
+        .skip(1)
+        .find(|f| f.size_bytes.is_none() && f.size_fn().is_none())
+    {
         return Err(Error::new(
             field.name.span(),
             "Non-finite size for field which is not the last field",
@@ -399,6 +403,7 @@ fn parse_fields(fields: Fields) -> syn::Result<Vec<PackField>> {
             ..
         } = f;
         let size_bytes = field_size_bytes(&ty)?;
+
         let name = name.ok_or_else(|| Error::new(f_sp, "No field name"))?;
         let comment = extract_item_comment(&attrs)?;
         let mut map = PackFieldMap::default();
@@ -447,10 +452,7 @@ mod kw {
     syn::custom_keyword!(is_valid);
     syn::custom_keyword!(get_as_ref);
     syn::custom_keyword!(into);
-    // flattens field
-    syn::custom_keyword!(flatten);
-    // bubbles up getters to add for flattened field
-    syn::custom_keyword!(flat_fields);
+    syn::custom_keyword!(size_fn);
 }
 
 #[derive(Default)]
@@ -460,8 +462,6 @@ pub struct PackFieldMap {
     pub alias: Option<Ident>,
     pub convert_may_fail: bool,
     pub get_as_ref: bool,
-    pub flatten: bool,
-    pub flatten_fields: Option<Vec<String>>,
 }
 
 impl PackFieldMap {
@@ -475,6 +475,7 @@ pub struct MapType {
     pub from_fn: Option<TokenStream>,
     pub is_valid_fn: Option<TokenStream>,
     pub into_fn: Option<TokenStream>,
+    pub size_fn: Option<TokenStream>,
 }
 
 impl Parse for PackFieldMap {
@@ -484,6 +485,7 @@ impl Parse for PackFieldMap {
         let mut custom_from_fn: Option<syn::Path> = None;
         let mut custom_into_fn: Option<syn::Expr> = None;
         let mut custom_is_valid_fn: Option<syn::Path> = None;
+        let mut custom_size_fn: Option<syn::Path> = None;
         while !input.is_empty() {
             let lookahead = input.lookahead1();
 
@@ -510,6 +512,10 @@ impl Parse for PackFieldMap {
                 input.parse::<kw::is_valid>()?;
                 input.parse::<Token![=]>()?;
                 custom_is_valid_fn = Some(input.parse()?);
+            } else if lookahead.peek(kw::size_fn) {
+                input.parse::<kw::size_fn>()?;
+                input.parse::<Token![=]>()?;
+                custom_size_fn = Some(input.parse()?);
             } else if lookahead.peek(kw::get_as_ref) {
                 input.parse::<kw::get_as_ref>()?;
                 map.get_as_ref = true;
@@ -517,30 +523,6 @@ impl Parse for PackFieldMap {
                 input.parse::<kw::into>()?;
                 input.parse::<Token![=]>()?;
                 custom_into_fn = Some(input.parse()?);
-            } else if lookahead.peek(kw::flatten) {
-                input.parse::<kw::flatten>()?;
-                map.flatten = true;
-            } else if lookahead.peek(kw::flat_fields) {
-                input.parse::<kw::flat_fields>()?;
-                input.parse::<Token![=]>()?;
-                let parsed = Punctuated::<syn::Expr, Token![,]>::parse_terminated(input)?;
-                let mut field_names: Vec<String> = vec![];
-                for expr in parsed {
-                    if let syn::Expr::Array(arr) = expr {
-                        for attr in arr.elems {
-                            if let syn::Expr::Lit(expr) = attr {
-                                if let Str(lit) = expr.lit {
-                                    field_names.push(lit.value());
-                                }
-                            }
-                        }
-                    }
-                }
-                if !field_names.is_empty() {
-                    map.flatten_fields = Some(field_names);
-                }
-                // input.parse_terminated::<Type::Array, syn::parse::ParseStream>(Type::parse);
-                // custom_flat_fields_stream = Some(input.parse()?);
             } else {
                 return Err(lookahead.error());
             }
@@ -556,6 +538,7 @@ impl Parse for PackFieldMap {
                 from_fn: custom_from_fn.map(ToTokens::into_token_stream),
                 is_valid_fn: custom_is_valid_fn.map(ToTokens::into_token_stream),
                 into_fn: custom_into_fn.map(ToTokens::into_token_stream),
+                size_fn: custom_size_fn.map(ToTokens::into_token_stream),
             });
         }
 

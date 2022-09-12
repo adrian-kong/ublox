@@ -631,7 +631,7 @@ fn panic_on_parse_error(name: &str, src_cnt: &str, err: &Error) -> ! {
         .take(nlines)
         .enumerate()
     {
-        code_problem.push_str(&line);
+        code_problem.push_str(line);
         code_problem.push('\n');
         if i == 0 && start.column > 0 {
             write!(&mut code_problem, "{:1$}", ' ', start.column).expect("write to String failed");
