@@ -18,7 +18,7 @@ use crate::ubx_packets::packets::mon_ver::is_cstr_valid;
 
 use super::{
     ubx_checksum, MemWriter, Position, UbxChecksumCalc, UbxPacketCreator, UbxPacketMeta,
-    SYNC_CHAR_1, SYNC_CHAR_2,
+    UbxUnknownPacketRef, SYNC_CHAR_1, SYNC_CHAR_2,
 };
 
 /// Geodetic Position Solution
@@ -551,7 +551,7 @@ impl fmt::Debug for NavSatSvFlags {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum NavSatQualityIndicator {
     NoSignal,
     Searching,
@@ -562,7 +562,7 @@ pub enum NavSatQualityIndicator {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum NavSatSvHealth {
     Healthy,
     Unhealthy,
@@ -570,7 +570,7 @@ pub enum NavSatSvHealth {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum NavSatOrbitSource {
     NoInfoAvailable,
     Ephemeris,
@@ -1387,7 +1387,7 @@ impl NavBbrPredefinedMask {
 /// Reset Type
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResetMode {
     /// Hardware reset (Watchdog) immediately
     HardwareResetImmediately = 0,
@@ -1546,7 +1546,7 @@ pub enum UartPortId {
 }
 
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UartMode {
     data_bits: DataBits,
     parity: Parity,
@@ -1582,7 +1582,7 @@ impl From<u32> for UartMode {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DataBits {
     Seven,
     Eight,
@@ -1613,7 +1613,7 @@ impl From<u32> for DataBits {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Parity {
     Even,
     Odd,
@@ -1646,7 +1646,7 @@ impl From<u32> for Parity {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StopBits {
     One,
     OneHalf,
@@ -2394,6 +2394,7 @@ struct TimTp {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct TimTpFlags(u8);
 
 impl TimTpFlags {
@@ -2438,6 +2439,7 @@ pub enum TimTpTimeBase {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct TimTpRefInfo(u8);
 
 impl TimTpRefInfo {
