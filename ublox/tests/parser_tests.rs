@@ -210,37 +210,41 @@ fn test_esf_meas_serialize() {
     while let Some(pack) = it.next() {
         match pack {
             Ok(pack) => {
-                let r = r#"{
-  "class": 16,
-  "msg_id": 2,
-  "time_tag": 25262579,
-  "flags": 2072,
-  "id": 0,
-  "data": [
-    {
-      "data_type": 11,
-      "data_field": 25677
-    }
-  ],
-  "calib_tag": 25269459
-}"#;
-                let json = serde_json::to_string_pretty(&pack).unwrap();
-                assert_eq!(json, r);
+                let expected = serde_json::json! {
+                    {
+                      "class": 16,
+                      "msg_id": 2,
+                      "time_tag": 25262579,
+                      "flags": 2072,
+                      "id": 0,
+                      "data": [
+                        {
+                          "data_type": 11,
+                          "data_field": 25677
+                        }
+                      ],
+                      "calib_tag": 25269459
+                    }
+                };
+                let actual = serde_json::to_value(&pack).unwrap();
+                assert_eq!(expected, actual);
                 if let PacketRef::EsfMeas(pack) = pack {
-                    let r = r#"{
-  "time_tag": 25262579,
-  "flags": 2072,
-  "id": 0,
-  "data": [
-    {
-      "data_type": 11,
-      "data_field": 25677
-    }
-  ],
-  "calib_tag": 25269459
-}"#;
-                    let json = serde_json::to_string_pretty(&pack).unwrap();
-                    assert_eq!(json, r);
+                    let expected = serde_json::json! {
+                        {
+                          "time_tag": 25262579,
+                          "flags": 2072,
+                          "id": 0,
+                          "data": [
+                            {
+                              "data_type": 11,
+                              "data_field": 25677
+                            }
+                          ],
+                          "calib_tag": 25269459
+                        }
+                    };
+                    let actual = serde_json::to_value(&pack).unwrap();
+                    assert_eq!(expected, actual);
                 } else {
                     assert!(false);
                 }
