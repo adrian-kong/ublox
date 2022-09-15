@@ -1,12 +1,11 @@
 use crate::cfg_val::CfgVal;
+use core::convert::TryInto;
 use core::fmt;
-use std::convert::TryInto;
 
 use bitflags::bitflags;
 use chrono::prelude::*;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::float::FloatCore;
-use serde::ser::SerializeMap;
 
 use ublox_derive::{
     define_recv_packets, ubx_extend, ubx_extend_bitflags, ubx_packet_recv, ubx_packet_recv_send,
